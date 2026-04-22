@@ -1,0 +1,2094 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Data preparation for efficient Budget Aware Reasoning</title>
+  <link rel="stylesheet" href="./dist/reset.css" />
+  <link rel="stylesheet" href="./dist/reveal.css" />
+  <link rel="stylesheet" href="./dist/theme/black.css" />
+  <link rel="stylesheet" href="./dist/plugin/highlight/monokai.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" />
+  <style>
+    /* ── Lomonosov-inspired warm palette ─────────────────────────── */
+    :root {
+      --accent:       #f0bf2d;   /* primary gold */
+      --accent2:      #fcd626;   /* bright yellow */
+      --accent-dim:   #d19a33;   /* bronze */
+      --accent-soft:  #ffda71;   /* light gold */
+      --text:         #ffffff;
+      --text-dim:     rgba(255,255,255,.85);
+      --card-bg:      rgba(40,12,6,.35);
+      --card-bg-lite: rgba(255,255,255,.07);
+      --deep:         #2a0e06;
+      --ink:          #3a1810;
+    }
+
+    /* ── page background: warm gradient + subtle circuit overlay ── */
+    html, body, .reveal-viewport, .reveal {
+      background: radial-gradient(ellipse at 20% 10%, #e78a3e 0%, #d5563a 35%, #b43a2a 70%, #8a2a20 100%) !important;
+      color: var(--text);
+    }
+    .reveal .slides {
+      background-image:
+        radial-gradient(circle at 12% 18%, rgba(252,214,38,.06) 0, transparent 35%),
+        radial-gradient(circle at 88% 82%, rgba(240,191,45,.08) 0, transparent 38%),
+        url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><g fill='none' stroke='rgba(255,240,180,0.05)' stroke-width='0.7'><path d='M0 40 L100 40 L100 80 L200 80'/><path d='M30 0 L30 60 L90 60 L90 160'/><path d='M160 0 L160 40 L220 40 L220 120 L240 120'/><path d='M0 140 L70 140 L70 220 L180 220'/><path d='M140 160 L140 200 L240 200'/></g><g fill='rgba(252,214,38,0.18)'><circle cx='100' cy='40' r='2'/><circle cx='100' cy='80' r='2'/><circle cx='30' cy='60' r='2'/><circle cx='90' cy='60' r='2'/><circle cx='90' cy='160' r='2'/><circle cx='160' cy='40' r='2'/><circle cx='220' cy='40' r='2'/><circle cx='220' cy='120' r='2'/><circle cx='70' cy='140' r='2'/><circle cx='70' cy='220' r='2'/><circle cx='140' cy='160' r='2'/><circle cx='140' cy='200' r='2'/></g></svg>");
+      background-repeat: no-repeat, no-repeat, repeat;
+    }
+
+    /* ── typography (Manrope ≈ HuaweiSans) ───────────────────────── */
+    .reveal { font-family: 'Manrope','Inter','Segoe UI','Helvetica Neue',Arial,sans-serif; font-size: 22px; color: var(--text); font-weight: 500; }
+    .reveal h1, .reveal h2, .reveal h3, .reveal h4 { font-family: inherit; color: var(--text); text-transform: none; letter-spacing: 0; text-shadow: none; }
+    .reveal h1 { font-size: 1.7em; color: var(--text); font-weight: 700; }
+    .reveal h2 {
+      font-size: 1.3em;
+      color: var(--text);
+      font-weight: 700;
+      padding-bottom: .25em;
+      margin-bottom: .55em;
+      border-bottom: 2px solid var(--accent);
+      position: relative;
+    }
+    .reveal h2::after {
+      content: ''; position: absolute; left: 0; bottom: -2px;
+      width: 64px; height: 2px; background: var(--accent2);
+    }
+    .reveal h3 { font-size: 1.05em; color: var(--accent); margin-bottom: .35em; font-weight: 600; }
+    .reveal p, .reveal li, .reveal td, .reveal th { color: var(--text); }
+    .reveal a { color: var(--accent2); }
+    .reveal strong { color: var(--accent-soft); }
+    .reveal em { color: var(--accent-soft); font-style: italic; }
+    .reveal code { color: var(--accent2); background: rgba(0,0,0,.35); padding: 0 .3em; border-radius: 3px; }
+    .reveal pre code { background: rgba(0,0,0,.45); color: #ffe9b0; }
+    .reveal ul { margin: 0; list-style: none; padding-left: 1.2em; }
+    .reveal ul li { position: relative; margin-bottom: .25em; }
+    .reveal ul li::before {
+      content: '▸'; color: var(--accent); position: absolute; left: -1em; top: 0;
+    }
+    .reveal section { text-align: left; }
+
+    /* ── content cards ───────────────────────────────────────────── */
+    .method {
+      background: var(--card-bg);
+      border-left: 3px solid var(--accent);
+      border-radius: 0 6px 6px 0;
+      padding: .55em .9em;
+      margin-bottom: .55em;
+      box-shadow: 0 2px 8px rgba(0,0,0,.18);
+    }
+    .method .title { font-weight: 700; color: var(--accent); }
+    .method .sub   { font-size: .82em; color: var(--text-dim); margin-top: .2em; }
+    .fbox {
+      background: var(--card-bg);
+      border-left: 3px solid var(--accent);
+      padding: .6em 1em;
+      border-radius: 0 6px 6px 0;
+      margin: .5em 0;
+      box-shadow: 0 2px 8px rgba(0,0,0,.2);
+    }
+    .fbox2 {
+      background: var(--card-bg);
+      border-left: 3px solid var(--accent2);
+      padding: .6em 1em;
+      border-radius: 0 6px 6px 0;
+      margin: .5em 0;
+      box-shadow: 0 2px 8px rgba(0,0,0,.2);
+    }
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.4em; }
+    .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1em; }
+
+    /* ── inline tags ─────────────────────────────────────────────── */
+    .etag {
+      display: inline-block;
+      background: rgba(0,0,0,.4);
+      color: var(--accent-soft);
+      font-family: 'JetBrains Mono','Consolas',monospace;
+      font-size: .8em;
+      padding: .1em .45em;
+      border-radius: 3px;
+      margin: .1em;
+      border: 1px solid rgba(240,191,45,.35);
+    }
+    .wip {
+      background: var(--accent);
+      color: var(--deep);
+      font-size: .7em;
+      border-radius: 4px;
+      padding: .12em .55em;
+      font-weight: 700;
+      letter-spacing: .05em;
+    }
+
+    /* ── part banners ────────────────────────────────────────────── */
+    .part-banner { text-align: center !important; }
+    .part-banner .part-num {
+      display: inline-block;
+      font-size: .9em;
+      color: var(--deep);
+      background: var(--accent);
+      letter-spacing: .18em;
+      text-transform: uppercase;
+      padding: .25em 1em;
+      border-radius: 3px;
+      font-weight: 700;
+    }
+    .part-banner .part-title {
+      font-size: 2em;
+      font-weight: 700;
+      color: var(--text);
+      margin-top: .55em;
+      line-height: 1.15;
+    }
+    .part-banner .part-sub {
+      font-size: .9em;
+      color: var(--accent-soft);
+      margin-top: .5em;
+    }
+
+    /* ── scorecard / comparison tables ───────────────────────────── */
+    .scorecard { border-collapse: collapse; width: 100%; font-size: .8em; }
+    .scorecard th {
+      background: rgba(0,0,0,.35);
+      color: var(--accent);
+      padding: .45em .6em;
+      text-align: left;
+      border-bottom: 2px solid var(--accent);
+      font-weight: 700;
+    }
+    .scorecard td { padding: .35em .6em; border-bottom: 1px solid rgba(255,255,255,.12); }
+    .scorecard tr:hover td { background: rgba(255,255,255,.05); }
+
+    /* ── pills ───────────────────────────────────────────────────── */
+    .pill { display: inline-block; border-radius: 3px; padding: .05em .45em; font-size: .78em; font-weight: 600; }
+    .pill-hi  { background: rgba(60,180,90,.25);  color: #c6f5b9; border: 1px solid rgba(120,220,130,.45); }
+    .pill-mid { background: rgba(240,191,45,.25); color: var(--accent-soft); border: 1px solid rgba(240,191,45,.5); }
+    .pill-lo  { background: rgba(220,80,60,.28);  color: #ffcbc0; border: 1px solid rgba(240,140,120,.45); }
+
+    /* ── misc ────────────────────────────────────────────────────── */
+    .cite { font-size: .68em; color: var(--accent-soft); opacity: .8; font-style: italic; font-weight: 400; }
+    .check { color: #d8f5a2; font-weight: 700; }
+    .cross { color: #ffc2b0; font-weight: 700; }
+    .arrow { color: var(--accent); font-weight: 700; }
+    .note-box {
+      background: rgba(0,0,0,.28);
+      border: 1px solid rgba(240,191,45,.4);
+      border-radius: 5px;
+      padding: .55em .95em;
+      margin-top: .6em;
+      font-size: .85em;
+    }
+    .big-formula { text-align: center; padding: 1em; }
+
+    /* ── numbered markers like Lomonosov PDFs (▪1 ▪2 ▪3) ─────────── */
+    .nmark {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 1.5em;
+      height: 1.5em;
+      border-radius: 50%;
+      background: var(--accent);
+      color: var(--deep);
+      font-weight: 700;
+      font-size: .85em;
+      margin-right: .4em;
+      vertical-align: middle;
+    }
+
+    /* ── slide number styling (top-right, out of controls' way) ── */
+    .reveal .slide-number {
+      position: fixed;
+      top: 18px;
+      right: 22px;
+      bottom: auto;
+      left: auto;
+      background: transparent;
+      color: var(--accent-soft);
+      font-weight: 600;
+      font-size: 20px;
+      letter-spacing: .05em;
+      padding: 0;
+    }
+    .reveal .slide-number-delimiter { opacity: .55; margin: 0 .2em; }
+    .reveal .slide-number a { color: inherit; }
+
+    /* ── progress bar ────────────────────────────────────────────── */
+    .reveal .progress { color: var(--accent); height: 4px; }
+    .reveal .progress span { background: var(--accent); }
+
+    /* ── controls ────────────────────────────────────────────────── */
+    .reveal .controls { color: var(--accent); }
+
+    /* ── math styling for readability ────────────────────────────── */
+    .reveal .MathJax, .reveal mjx-container { color: var(--text) !important; }
+  </style>
+</head>
+<body>
+<div class="reveal">
+<div class="slides">
+
+<!-- ═══════════════════════════════════════════ SLIDE 1: TITLE -->
+<section data-hide-slide-number="true">
+  <!-- Lab affiliations row -->
+  <div style="display:flex; align-items:center; gap:1em; margin-top:.2em; margin-bottom:2.5em; flex-wrap:wrap">
+    <!-- Lomonosov RI block -->
+    <div style="display:flex; align-items:center; gap:.6em">
+      <div style="width:52px; height:52px; border:2.5px solid #fff; border-radius:5px; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,.12)">
+        <span style="font-weight:800; font-size:1.3em; color:#fff; letter-spacing:-.04em; line-height:1">RI</span>
+      </div>
+      <div style="font-size:.48em; line-height:1.15; font-weight:700; color:#fff">
+        Lomonosov<br>Research Institute
+      </div>
+    </div>
+    <div style="width:1px; height:48px; background:rgba(255,255,255,.4)"></div>
+    <div style="font-size:.54em; line-height:1.2; font-weight:700; color:#fff">
+      Mathematical Modeling<br>&amp; Optimization Algorithm<br>Laboratory
+    </div>
+    <!-- HSE block -->
+    <div style="margin-left:1.8em; font-weight:800; font-size:1.45em; color:#fff; letter-spacing:-.03em; line-height:1">HSE</div>
+    <div style="width:1px; height:48px; background:rgba(255,255,255,.4)"></div>
+    <div style="font-size:.54em; line-height:1.2; font-weight:700; color:#fff">
+      AI Algorithm<br>Technology Application<br>Laboratory
+    </div>
+  </div>
+
+  <!-- Title -->
+  <h1 style="font-size:1.85em; font-weight:800; line-height:1.12; margin:0 0 .3em 0; padding:0; border:none; color:#fff; text-shadow:0 2px 12px rgba(0,0,0,.3)">
+    Data preparation for efficient<br>Budget Aware Reasoning
+  </h1>
+
+  <div style="height:3em"></div>
+
+  <!-- Authors -->
+  <div style="font-size:1em; font-weight:700; color:#fff; margin-bottom:.25em">
+    Dmitry Ilvovsky &nbsp;·&nbsp; Ilia Karpov
+  </div>
+  <div style="font-size:.85em; font-weight:500; color:rgba(255,255,255,.88)">
+    Center for Language and Semantic Technologies · April 2026
+  </div>
+
+  <aside class="notes">
+    Welcome. Today I present the EventBudget project — a Hawkes-process framework for controlling inference compute in LLM reasoning chains.
+    The talk is in three parts: first a survey of what exists, then our approach, then how we plan to build the dataset.
+    No experimental results yet — this is at the pre-registration stage.
+  </aside>
+</section>
+
+<!-- ═══════════════════════════════════════════ SLIDE 2: OUTLINE -->
+<section>
+  <h2>Talk Outline</h2>
+  <div class="grid2" style="margin-top:.8em">
+    <div>
+      <div class="method">
+        <div class="title">Part I — Landscape (≈12 min)</div>
+        <div class="sub">
+          Why compute control matters<br>
+          Three method families with worked examples<br>
+          The gap that motivates us
+        </div>
+      </div>
+      <div class="method">
+        <div class="title">Part II — EventBudget (≈15 min)</div>
+        <div class="sub">
+          MTPP / Hawkes formalism<br>
+          Architecture: encoder + Stage A + Stage B<br>
+          GRPO training &amp; Theorem 1
+        </div>
+      </div>
+      <div class="method" style="border-color:var(--accent2)">
+        <div class="title" style="color:var(--accent2)">Part III — Data pipeline <span class="wip">WIP</span> (≈8 min)</div>
+        <div class="sub">
+          Why the dataset is the hard part<br>
+          Four-stage construction recipe<br>
+          Open engineering challenges
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="fbox" style="margin-top:.3em">
+        <strong>Audience assumption</strong><br>
+        Familiar with transformers, chain-of-thought, RAG.<br>
+        Temporal point processes explained from scratch.
+      </div>
+      <div class="fbox2" style="margin-top:.8em">
+        <strong>No results yet</strong><br>
+        We reference analogous work to set expectations for predicted effects.
+      </div>
+    </div>
+  </div>
+  <aside class="notes">
+    The talk is structured so Part I gives everyone shared vocabulary.
+    Part II is the core technical contribution. Part III shows concrete engineering work in progress.
+    I will explain Hawkes processes from scratch — no prior TPP knowledge assumed.
+  </aside>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════
+     PART I BANNER
+════════════════════════════════════════════════════════════ -->
+<section class="part-banner">
+  <div class="part-num">Part I</div>
+  <div class="part-title">Budget-Aware Reasoning:<br>What Already Exists</div>
+  <div class="part-sub">Three method families · worked examples · the gap</div>
+  <aside class="notes">Part one. Let's survey what is already being done to control compute in LLM reasoning.</aside>
+</section>
+
+<!-- ═══════════════════════════════════════════ SLIDE: WHY COMPUTE MATTERS -->
+<section>
+  <h2>The Compute Cost Problem</h2>
+  <div class="grid2">
+    <div>
+      <div class="method">
+        <div class="title">Chain-of-thought reasoning works</div>
+        <div class="sub">Scaling thinking tokens improves accuracy on hard tasks — but linearly increases cost.</div>
+      </div>
+      <div class="method">
+        <div class="title">Most problems are easy</div>
+        <div class="sub">In practice, ~72% of MATH-500 problems need far fewer tokens than a worst-case budget allows (see histogram).</div>
+      </div>
+      <div class="method">
+        <div class="title">Fixed-budget policies waste compute</div>
+        <div class="sub">Setting one token limit for all queries: over-compute on easy ones, under-compute on hard ones.</div>
+      </div>
+    </div>
+    <div>
+      <!-- token distribution histogram -->
+      <div style="background:rgba(0,0,0,.35);border-radius:6px;padding:.6em .8em .4em;margin-bottom:.6em">
+        <div style="font-size:.75em;opacity:.7;margin-bottom:.4em"><a href="https://arxiv.org/abs/2103.03874" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px dashed currentColor">MATH-500</a> · tokens used per solved problem (<a href="https://arxiv.org/abs/2409.12122" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px dashed currentColor">Qwen-2.5-Math-7B</a>)</div>
+        <svg viewBox="0 0 310 145" style="width:100%;display:block">
+          <!-- axes -->
+          <line x1="28" y1="5" x2="28" y2="115" stroke="#555" stroke-width="1"/>
+          <line x1="28" y1="115" x2="305" y2="115" stroke="#555" stroke-width="1"/>
+          <!-- bars: 8 buckets, each 33px wide, 4px gap -->
+          <!-- bucket widths all ~33px, starting x=30 -->
+          <!-- heights proportional: 32% 24% 16% 10% 7% 5% 4% 2% (of 105px max) -->
+          <rect x="30"  y="16"  width="31" height="99" fill="#4ec9f0" opacity=".85"/>
+          <rect x="65"  y="41"  width="31" height="74" fill="#4ec9f0" opacity=".75"/>
+          <rect x="100" y="66"  width="31" height="49" fill="#4ec9f0" opacity=".65"/>
+          <rect x="135" y="84"  width="31" height="31" fill="#4ec9f0" opacity=".55"/>
+          <rect x="170" y="93"  width="31" height="22" fill="#4ec9f0" opacity=".45"/>
+          <rect x="205" y="99"  width="31" height="16" fill="#4ec9f0" opacity=".38"/>
+          <rect x="240" y="103" width="31" height="12" fill="#4ec9f0" opacity=".30"/>
+          <rect x="275" y="109" width="25" height="6"  fill="#4ec9f0" opacity=".25"/>
+          <!-- fixed-budget line -->
+          <line x1="298" y1="5" x2="298" y2="115" stroke="#f0b060" stroke-width="1.5" stroke-dasharray="4,3"/>
+          <text x="298" y="3" text-anchor="middle" fill="#f0b060" font-size="8">B_max</text>
+          <!-- bracket: ~72% of area in first 3 bars -->
+          <line x1="30" y1="125" x2="163" y2="125" stroke="#7fdf7f" stroke-width="1.2"/>
+          <line x1="30"  y1="121" x2="30"  y2="129" stroke="#7fdf7f" stroke-width="1.2"/>
+          <line x1="163" y1="121" x2="163" y2="129" stroke="#7fdf7f" stroke-width="1.2"/>
+          <text x="96" y="137" text-anchor="middle" fill="#7fdf7f" font-size="9">~72% of problems</text>
+          <!-- wasteful zone annotation -->
+          <text x="230" y="137" text-anchor="middle" fill="#f0b060" font-size="9">wasted compute</text>
+          <!-- x-axis labels -->
+          <text x="45"  y="128" text-anchor="middle" fill="#aaa" font-size="8">≤200</text>
+          <text x="80"  y="128" text-anchor="middle" fill="#aaa" font-size="8">400</text>
+          <text x="115" y="128" text-anchor="middle" fill="#aaa" font-size="8">600</text>
+          <text x="150" y="128" text-anchor="middle" fill="#aaa" font-size="8">800</text>
+          <text x="285" y="128" text-anchor="middle" fill="#f0b060" font-size="8">2048</text>
+          <!-- y-axis labels -->
+          <text x="24" y="19"  text-anchor="end" fill="#aaa" font-size="8">32%</text>
+          <text x="24" y="44"  text-anchor="end" fill="#aaa" font-size="8">24%</text>
+          <text x="24" y="66"  text-anchor="end" fill="#aaa" font-size="8">16%</text>
+          <text x="24" y="90"  text-anchor="end" fill="#aaa" font-size="8">8%</text>
+          <text x="24" y="116" text-anchor="end" fill="#aaa" font-size="8">0</text>
+          <!-- y grid lines -->
+          <line x1="28" y1="44" x2="305" y2="44" stroke="#333" stroke-width="0.5" stroke-dasharray="3,3"/>
+          <line x1="28" y1="80" x2="305" y2="80" stroke="#333" stroke-width="0.5" stroke-dasharray="3,3"/>
+          <!-- x axis label -->
+          <text x="165" y="145" text-anchor="middle" fill="#888" font-size="8">tokens used</text>
+        </svg>
+      </div>
+      <div class="fbox" style="font-size:.82em">
+        <strong>Central question</strong><br>
+        Can the model observe its own reasoning and decide — in real time — when to stop or retrieve?
+      </div>
+    </div>
+  </div>
+  <aside class="notes">
+    Chain-of-thought and extended thinking work — but they are expensive.
+    The key insight is that difficulty varies enormously across queries. A smart system should spend proportionally.
+    Anthropic's own analysis shows 3-10x cost increase from extended thinking modes.
+  </aside>
+</section>
+
+<!-- ═══════════════════════════════════════════ SLIDE: THREE FAMILIES MAP -->
+<section>
+  <h2>Three Families of Solutions</h2>
+  <div class="grid3" style="margin-top:.5em;gap:.8em">
+    <div class="fbox" style="padding:.5em .8em;margin:0">
+      <h3 style="margin-bottom:.3em;font-size:1em">Family 1<br>Token-level throttling</h3>
+      <ul style="font-size:.78em;padding-left:1em">
+        <li>Prune or skip generation steps</li>
+        <li>Inference-time, no retraining</li>
+        <li>Examples: <a href="https://arxiv.org/abs/2502.12067" target="_blank" rel="noopener">TokenSkip</a>, OPSDC</li>
+      </ul>
+      <div style="margin-top:.4em;font-size:.75em;opacity:.75">Signal: token probability / hidden-state entropy</div>
+    </div>
+    <div class="fbox" style="padding:.5em .8em;margin:0">
+      <h3 style="margin-bottom:.3em;font-size:1em">Family 2<br>Reasoning-budget modeling</h3>
+      <ul style="font-size:.78em;padding-left:1em">
+        <li>Model plans its compute allocation</li>
+        <li>Requires fine-tuning</li>
+        <li>Examples: SelfBudgeter, BudgetThinker, DEER, <a href="https://arxiv.org/abs/2406.19215" target="_blank" rel="noopener">SeaKR</a></li>
+      </ul>
+      <div style="margin-top:.4em;font-size:.75em;opacity:.75">Signal: budget token / self-confidence</div>
+    </div>
+    <div class="fbox" style="padding:.5em .8em;margin:0">
+      <h3 style="margin-bottom:.3em;font-size:1em">Family 3<br>Adaptive retrieval</h3>
+      <ul style="font-size:.78em;padding-left:1em">
+        <li>Decide when to call retrieval tool</li>
+        <li>Mix retrieval &amp; reasoning cost</li>
+        <li>Examples: <a href="https://arxiv.org/abs/2305.06983" target="_blank" rel="noopener">FLARE</a>, <a href="https://arxiv.org/abs/2403.10081" target="_blank" rel="noopener">DRAGIN</a>, <a href="https://arxiv.org/abs/2310.11511" target="_blank" rel="noopener">Self-RAG</a>, <a href="https://arxiv.org/abs/2403.14403" target="_blank" rel="noopener">Adaptive-RAG</a></li>
+      </ul>
+      <div style="margin-top:.4em;font-size:.75em;opacity:.75">Signal: token probability / self-reflection</div>
+    </div>
+  </div>
+  <div class="note-box" style="margin-top:.6em;font-size:.82em">
+    All three families share a common limitation: they operate on <strong>aggregate statistics</strong> (token count, perplexity, single scalar) rather than on the <strong>typed event structure</strong> of the reasoning chain.
+  </div>
+  <aside class="notes">
+    I'll go through each family with a concrete example of how they work.
+    The takeaway from all three is stated at the bottom: they all compress the reasoning process into a scalar signal and lose the structural information about what kind of step was just taken.
+  </aside>
+</section>
+
+<!-- ═══════════════════════════════════════════ SLIDE: FAMILY 1 -->
+<section>
+  <h2>Family 1 · Token-Level Throttling</h2>
+  <div class="grid2">
+    <div>
+      <div class="method">
+        <div class="title">TokenSkip (Xia et al., 2025)</div>
+        <div class="sub">
+          <strong>What:</strong> Train model to skip &lt;think&gt; segments selectively based on query complexity score.<br>
+          <strong>How:</strong> Binary policy: for each reasoning segment, predict skip/keep from prompt embedding. Fine-tune with token-budget reward.<br>
+          <strong>Limitation:</strong> Skip decision is made <em>before</em> the segment is generated — no observation of what actually happened inside the segment.
+        </div>
+      </div>
+      <div class="method">
+        <div class="title">OPSDC (Yang et al., 2025)</div>
+        <div class="sub">
+          <strong>What:</strong> Online pruning of speculative decoding candidates.<br>
+          <strong>How:</strong> Draft model generates N candidate continuations; verifier scores them; low-value tokens pruned before acceptance.<br>
+          <strong>Limitation:</strong> Operates purely at token level — no notion of reasoning step type (backtrack vs. conclusion).
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="fbox" style="margin-top:.3em">
+        <strong>Common signal:</strong>
+        $$ s = \text{perplexity}(t_i) = -\log p(t_i | t_{&lt;i}) $$
+        High perplexity → model is uncertain → candidate for skipping or pruning.
+      </div>
+      <div class="fbox2" style="margin-top:.8em">
+        <strong>Key weakness:</strong> Same action (skip/prune) regardless of whether the model is in the middle of a backtracking loop, a final verification step, or the first exploration. The <em>type</em> of reasoning step is invisible.
+      </div>
+    </div>
+  </div>
+  <aside class="notes">
+    TokenSkip is elegant: train once, run at inference time. But the skip decision happens before the step executes.
+    OPSDC is about speculative decoding efficiency — orthogonal goal, but same structural problem.
+    Both treat all tokens equally regardless of reasoning function.
+  </aside>
+</section>
+
+<!-- ═══════════════════════════════════════════ SLIDE: FAMILY 2a -->
+<section>
+  <h2>Family 2 · Reasoning-Budget Modeling (Fine-tuning)</h2>
+  <div class="grid2">
+    <div>
+      <div class="method">
+        <div class="title">SelfBudgeter (Chen et al., 2025)</div>
+        <div class="sub">
+          <strong>What:</strong> Model receives a token budget $B$ prepended to the prompt and learns to self-regulate within it.<br>
+          <strong>How:</strong> SFT on traces with budget annotations. At test time: set $B$, model compresses reasoning accordingly.<br>
+          <strong>Limitation:</strong> Budget is a single scalar set <em>before</em> the query. Cannot adapt when a problem turns out harder than expected mid-way.
+        </div>
+      </div>
+      <div class="method">
+        <div class="title">BudgetThinker (Xie et al., 2025)</div>
+        <div class="sub">
+          <strong>What:</strong> RL-trained model learns a "think short / think long" meta-policy.<br>
+          <strong>How:</strong> GRPO reward combines accuracy + token efficiency. Two modes: quick (no extended thinking) and deliberate (full CoT).<br>
+          <strong>Limitation:</strong> Binary mode switch; no fine-grained redistribution within a reasoning trace.
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="fbox" style="margin-top:.3em">
+        <strong>Shared architecture pattern:</strong>
+        <br><br>
+        Prompt: <code>[budget=512] Solve: ...</code><br><br>
+        Model is trained to honor the budget via SFT reward:
+        $$ r = \mathbf{1}[\text{correct}] - \lambda \cdot \max(0, |T| - B) $$
+        where $|T|$ is tokens used and $B$ is the budget.
+      </div>
+      <div class="note-box" style="margin-top:.8em">
+        These methods work well on benchmarks with uniform difficulty. They struggle when the test distribution has high variance in problem difficulty, since the budget is fixed at query time.
+      </div>
+    </div>
+  </div>
+  <aside class="notes">
+    SelfBudgeter and BudgetThinker are fine-tuned approaches. They are better than TokenSkip because the model can plan.
+    But the budget is committed before the reasoning starts. There is no mechanism to say "I started a backtracking loop I didn't expect — let me stop early."
+  </aside>
+</section>
+
+<!-- ═══════════════════════════════════════════ SLIDE: FAMILY 2b — Entropy/Conformal -->
+<section>
+  <h2>Family 2 · Confidence-Based Early Exit</h2>
+  <div class="grid2">
+    <div>
+      <div class="method">
+        <div class="title">DEER (Zhang et al., 2025)</div>
+        <div class="sub">
+          <strong>What:</strong> Early exit from reasoning when model entropy drops below a threshold.<br>
+          <strong>How:</strong> At each decoding step, compute $H(p) = -\sum_v p_v \log p_v$. If $H &lt; \tau$ for $k$ consecutive steps, stop.<br>
+          <strong>Limitation:</strong> Entropy threshold $\tau$ must be hand-tuned per task. No statistical guarantee on accuracy loss.
+        </div>
+      </div>
+      <div class="method">
+        <div class="title">EntropyAT + Conformal (Ye et al., 2025)</div>
+        <div class="sub">
+          <strong>What:</strong> Conformal prediction wrapper gives a coverage guarantee on top of entropy-based stopping.<br>
+          <strong>How:</strong> Calibration set used to set $\tau$ such that $P(\text{correct} | \text{stop}) \geq 1 - \alpha$ with finite-sample guarantee.<br>
+          <strong>Limitation:</strong> Guarantee is marginal over queries — not conditional on reasoning depth or event type.
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="fbox" style="margin-top:.3em">
+        <strong>Conformal calibration procedure:</strong><br><br>
+        Given calibration set $\mathcal{D}_{cal}$, find threshold:
+        $$ \hat{\tau} = \inf\left\{\tau : \frac{|\{i: \text{correct}_i \text{ if stop at } \tau\}|}{|\mathcal{D}_{cal}|} \geq 1-\alpha\right\} $$
+        Finite-sample guarantee: $P(\text{error}) \leq \alpha + \frac{1}{|\mathcal{D}_{cal}|+1}$
+      </div>
+      <div class="note-box" style="margin-top:.8em">
+        Conformal approach is principled, but the stopping signal is still a scalar (entropy). Two queries with the same entropy but different reasoning structures (one mid-backtrack, one finalizing) receive the same treatment.
+      </div>
+    </div>
+  </div>
+  <aside class="notes">
+    EntropyAT is the most principled approach in this family. It gives a real statistical guarantee.
+    But the guarantee is marginal — it says "on average over the population of queries, you'll be correct 1-alpha of the time."
+    It doesn't account for the fact that the model is in a backtracking loop right now.
+  </aside>
+</section>
+
+<!-- ═══════════════════════════════════════════ SLIDE: FAMILY 3a — Adaptive Retrieval (predictive) -->
+<section>
+  <h2>Family 3 · Adaptive Retrieval — Predictive Triggering</h2>
+  <div class="grid2">
+    <div>
+      <div class="method">
+        <div class="title">FLARE (Jiang et al., 2023)</div>
+        <div class="sub">
+          <strong>What:</strong> Retrieve when the model is about to generate uncertain tokens.<br>
+          <strong>How:</strong> After generating a sentence, check if any token has $p &lt; \theta$. If so, regenerate that sentence with retrieved context injected.<br>
+          <strong>Limitation:</strong> Retrieval triggered by individual low-probability tokens — noisy signal that causes spurious retrievals on rare-but-correct tokens.
+        </div>
+      </div>
+      <div class="method">
+        <div class="title">DRAGIN (Su et al., 2024)</div>
+        <div class="sub">
+          <strong>What:</strong> Dynamic retrieval using attention entropy to identify <em>which tokens</em> need grounding.<br>
+          <strong>How:</strong> Compute attention entropy $H_{\text{attn}}(t)$ for each token; high-entropy tokens indicate knowledge gap → form query from those tokens' context.<br>
+          <strong>Limitation:</strong> Attention entropy correlates with genuine uncertainty but also with syntactic complexity and style variation.
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="fbox" style="margin-top:.3em">
+        <strong>DRAGIN attention entropy:</strong>
+        $$ H_{\text{attn}}(t_i) = -\sum_j \alpha_{ij} \log \alpha_{ij} $$
+        where $\alpha_{ij}$ are attention weights from token $i$ to context token $j$.
+        <br><br>
+        Query formed from tokens $t_j$ with $H_{\text{attn}}(t_j) > \theta$:
+        $$ q = \{t_j : H_{\text{attn}}(t_j) > \theta\} $$
+      </div>
+      <div class="note-box" style="margin-top:.8em">
+        Both FLARE and DRAGIN excel at deciding <em>when</em> to retrieve. They do not model the <em>sequence</em> of retrieve events — each decision is made independently.
+      </div>
+    </div>
+  </div>
+  <aside class="notes">
+    FLARE and DRAGIN are focused on retrieval triggering specifically.
+    DRAGIN is smarter than FLARE because it uses attention to identify what the model doesn't know, not just that it doesn't know.
+    But both make each retrieval decision independently — no memory of "I already retrieved twice and each time returned low-relevance docs."
+  </aside>
+</section>
+
+<!-- ═══════════════════════════════════════════ SLIDE: FAMILY 3b — Self-Evaluate Retrieval -->
+<section>
+  <h2>Family 3 · Adaptive Retrieval — Self-Evaluation</h2>
+  <div class="grid2">
+    <div>
+      <div class="method">
+        <div class="title">Self-RAG (Asai et al., 2023)</div>
+        <div class="sub">
+          <strong>What:</strong> Model generates special reflection tokens to decide: retrieve? is retrieved passage relevant? is generated text grounded?<br>
+          <strong>How:</strong> Five special tokens: <code>[Retrieve]</code>, <code>[IsRel]</code>, <code>[IsSup]</code>, <code>[IsUse]</code>, <code>[No Retrieve]</code>. SFT on annotated corpus. Beam search over reflection tokens at inference.<br>
+          <strong>Limitation:</strong> Reflection tokens are auto-regressive ($r_t$ conditioned on $r_{&lt;t}$), so prior retrievals are visible in context. However, Self-RAG cannot forecast cumulative retrieval cost $\Lambda_{\text{retrieval}}(T)$ or make explicit budget-aware decisions.
+        </div>
+      </div>
+      <div class="method">
+        <div class="title">Adaptive-RAG (Jeong et al., 2024)</div>
+        <div class="sub">
+          <strong>What:</strong> Classify query complexity into {no-retrieval, single-retrieval, multi-retrieval} before answering.<br>
+          <strong>How:</strong> Small classifier (fine-tuned on query features) routes to appropriate pipeline.<br>
+          <strong>Limitation:</strong> Routing decision is fixed at query start. Cannot switch to more retrievals if the initial single-retrieval answer is inadequate.
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="fbox" style="margin-top:.3em">
+        <strong>Self-RAG decoding:</strong>
+        $$ \hat{y} = \arg\max_{y, r_1,\ldots,r_T} \sum_{t} \log p(y_t, r_t | x, y_{&lt;t}, r_{&lt;t}) $$
+        where $r_t \in \{\text{Retrieve, NoRetrieve}\}$ are reflection tokens predicted jointly with output tokens.
+      </div>
+      <div class="fbox2" style="margin-top:.8em">
+        <strong>Adaptive-RAG routing:</strong>
+        $$ \hat{c} = \text{Classifier}(x) \in \{\text{direct}, \text{single}, \text{multi}\} $$
+        Pipeline selected before any generation begins.
+      </div>
+    </div>
+  </div>
+  <aside class="notes">
+    Self-RAG is the most sophisticated of the retrieval methods. It trains a meta-cognitive capability into the model.
+    But the reflection tokens are emitted one at a time and each is independent of the history of prior retrievals.
+    Adaptive-RAG makes a one-shot routing decision — if it's wrong, there's no recovery mechanism.
+  </aside>
+</section>
+
+<!-- ═══════════════════════════════════════════ SLIDE: THE GAP -->
+<section>
+  <h2>The Fundamental Gap</h2>
+  <div class="grid2">
+    <div>
+      <h3>What existing methods see:</h3>
+      <div class="fbox" style="margin-bottom:.6em">
+        A sequence of tokens $t_1, t_2, \ldots, t_n$ with associated scalar signals:<br>
+        perplexity, entropy, attention weight, budget counter
+      </div>
+      <h3 style="margin-top:.8em">What is actually happening:</h3>
+      <div class="fbox2">
+        A typed event stream with causal structure:<br><br>
+        <span class="etag">backtrack</span> at $t=12.3$s<br>
+        <span class="etag">verify</span> at $t=14.1$s<br>
+        <span class="etag">retrieval-call</span> at $t=15.0$s<br>
+        <span class="etag">evidence-merge</span> at $t=15.9$s<br>
+        <span class="etag">commit</span> at $t=17.2$s
+      </div>
+    </div>
+    <div>
+      <h3>The missing capability:</h3>
+      <div class="method" style="margin-bottom:.5em">
+        <div class="title">History-dependent rate prediction</div>
+        <div class="sub">After seeing 3 backtracks in 10 seconds, how likely is the next token to be another backtrack vs. a commit? Existing models cannot answer this.</div>
+      </div>
+      <div class="method" style="margin-bottom:.5em">
+        <div class="title">Cross-event cost accounting</div>
+        <div class="sub">A retrieval call costs $c_r$ tokens. A backtrack loop costs $c_b$ tokens. Total expected spend is $\sum_k c_k \cdot \Lambda_k(T)$ — not just "tokens so far."</div>
+      </div>
+      <div class="method">
+        <div class="title">Type-conditional stopping</div>
+        <div class="sub">Early exit is safe after <span class="etag">commit</span>. Dangerous after <span class="etag">backtrack</span>. Same token count, different right answer.</div>
+      </div>
+    </div>
+  </div>
+  <aside class="notes">
+    This is the key insight motivating our work. All existing methods reduce the reasoning chain to a scalar.
+    But reasoning has structure: there are backtracks, verifications, retrievals, commits. These are different events with different implications for future cost and accuracy.
+    A model that can track this event structure can make much better decisions about when to stop or retrieve.
+  </aside>
+</section>
+
+<!-- ═══════════════════════════════════════════ SLIDE: HAWKES AS UNIFYING FRAMEWORK -->
+<section>
+  <h2>Prior Methods Are Special Cases of Hawkes</h2>
+  <div class="note-box" style="margin-bottom:.7em;font-size:.85em">
+    Claim: roughly half of the methods surveyed in Part I can be recovered by <em>restricting</em> a multivariate Hawkes process — different inductive biases, but one shared skeleton.
+  </div>
+  <table class="scorecard" style="font-size:.8em">
+    <tr>
+      <th>Method</th>
+      <th>Hawkes restriction</th>
+      <th>What's removed</th>
+    </tr>
+    <tr>
+      <td>DEER / EntropyAT</td>
+      <td>$K=1$, no excitation: $\lambda(t) = \mu$ + threshold $\theta$ on token entropy</td>
+      <td>History dependence; event types</td>
+    </tr>
+    <tr>
+      <td>SelfBudgeter / BudgetThinker</td>
+      <td>$K=1$, deterministic absorbing kernel at $t = B_{\max}$</td>
+      <td>Stochastic intensity; mid-trace adaptation</td>
+    </tr>
+    <tr>
+      <td>FLARE / DRAGIN</td>
+      <td>$K=2$ (generate, retrieve); stateless trigger kernel $\phi \equiv 0$</td>
+      <td>Self-excitation; cross-type inhibition</td>
+    </tr>
+    <tr>
+      <td>Self-RAG</td>
+      <td>$K=3$ with discrete reflection tokens as events; Markov (last-event only) kernel</td>
+      <td>Longer-range history; continuous-time rate</td>
+    </tr>
+    <tr>
+      <td>SeaKR</td>
+      <td>$K=1$ with self-eval confidence as intensity proxy; no cross-type</td>
+      <td>Event type structure; cost accounting</td>
+    </tr>
+    <tr style="background:rgba(78,201,240,.07)">
+      <td><strong>EventBudget (ours)</strong></td>
+      <td><strong>Full</strong> multivariate Hawkes, $K\geq 6$, signed kernels, softplus link</td>
+      <td>—</td>
+    </tr>
+  </table>
+  <div class="fbox" style="margin-top:.7em;font-size:.85em">
+    <strong>Consequence:</strong> every ablation of EventBudget that collapses kernel, link, or type count recovers one of these baselines as a special case. This gives us <em>nested comparisons</em> — not just side-by-side benchmarks.
+  </div>
+  <aside class="notes">
+    This is a unification claim: a multivariate Hawkes process with signed kernels and softplus link function is a strict generalization of at least five methods we surveyed.
+    Each restriction — collapsing the number of event types, removing the excitation kernel, or replacing the stochastic intensity with a deterministic countdown — recovers a known method.
+    Practical value: our ablation study will be informative by construction. Turning off self-excitation → we reproduce FLARE. Reducing to K=1 and a threshold → we reproduce DEER. This gives a principled reviewer-friendly comparison.
+    Theoretical value: the framework is not ad-hoc; it subsumes existing approaches under one formalism.
+  </aside>
+</section>
+
+<!-- ═══════════════════════════════════════════ SLIDE: CAPABILITY MAP -->
+<section>
+  <h2>What Each Method Can and Cannot Do</h2>
+  <table class="scorecard">
+    <tr>
+      <th>Method</th>
+      <th>Decision signal</th>
+      <th>Adapts<br>mid-trace?</th>
+      <th>Sees event<br>type?</th>
+      <th>Retrieval<br>budget?</th>
+      <th>Formal<br>guarantee?</th>
+    </tr>
+    <tr>
+      <td>TokenSkip / OPSDC</td>
+      <td style="font-size:.8em">Token perplexity $-\log p(t_i)$</td>
+      <td><span class="cross">✗</span> pre-generation</td>
+      <td><span class="cross">✗</span></td>
+      <td><span class="cross">✗</span></td>
+      <td><span class="cross">✗</span></td>
+    </tr>
+    <tr>
+      <td>SelfBudgeter / BudgetThinker</td>
+      <td style="font-size:.8em">Token count vs. budget $B$</td>
+      <td><span class="cross">✗</span> fixed at query time</td>
+      <td><span class="cross">✗</span></td>
+      <td><span class="cross">✗</span></td>
+      <td><span class="cross">✗</span></td>
+    </tr>
+    <tr>
+      <td>DEER</td>
+      <td style="font-size:.8em">Scalar entropy $H(p_t)$</td>
+      <td><span class="check">✓</span> per step</td>
+      <td><span class="cross">✗</span></td>
+      <td><span class="cross">✗</span></td>
+      <td><span class="cross">✗</span> threshold hand-tuned</td>
+    </tr>
+    <tr>
+      <td>EntropyAT + Conformal</td>
+      <td style="font-size:.8em">Scalar entropy $H(p_t)$</td>
+      <td><span class="check">✓</span> per step</td>
+      <td><span class="cross">✗</span></td>
+      <td><span class="cross">✗</span></td>
+      <td><span class="pill pill-mid">Marginal</span> $P(\text{err}) \leq \alpha$</td>
+    </tr>
+    <tr>
+      <td>FLARE / DRAGIN</td>
+      <td style="font-size:.8em">Token prob / attention entropy</td>
+      <td><span class="check">✓</span> per token</td>
+      <td><span class="cross">✗</span></td>
+      <td><span class="pill pill-lo">Implicit</span></td>
+      <td><span class="cross">✗</span></td>
+    </tr>
+    <tr>
+      <td>SeaKR</td>
+      <td style="font-size:.8em">LLM self-eval confidence</td>
+      <td><span class="check">✓</span> per step</td>
+      <td><span class="cross">✗</span></td>
+      <td><span class="cross">✗</span></td>
+      <td><span class="cross">✗</span></td>
+    </tr>
+    <tr>
+      <td>Self-RAG</td>
+      <td style="font-size:.8em">Discrete reflection tokens</td>
+      <td><span class="check">✓</span> per step</td>
+      <td><span class="pill pill-lo">Partial</span></td>
+      <td><span class="pill pill-lo">Partial</span></td>
+      <td><span class="cross">✗</span></td>
+    </tr>
+    <tr style="background:rgba(78,201,240,.07)">
+      <td><strong>EventBudget (ours)</strong></td>
+      <td style="font-size:.8em"><strong>Intensity vector</strong> $\boldsymbol{\lambda}(t|\mathcal{H}_t)$</td>
+      <td><span class="check">✓</span> continuous</td>
+      <td><span class="check">✓</span> $K$ types</td>
+      <td><span class="check">✓</span> $\sum_k c_k \Lambda_k$</td>
+      <td><span class="pill pill-mid">Marginal</span> conformal (H4)</td>
+    </tr>
+  </table>
+  <div class="note-box" style="margin-top:.6em;font-size:.82em">
+    <strong>Marginal conformal (H4):</strong> $P(\text{error}) \leq \alpha$ averaged over the test distribution. Conditional coverage (over event-history strata) is a design aspiration beyond H4 — not yet claimed.
+  </div>
+  <aside class="notes">
+    The table uses only observable, verifiable properties — no subjective scores.
+    Decision signal: what observable quantity drives the stop/retrieve decision?
+    Adapts mid-trace: can the method change its decision after reasoning has started?
+    Sees event type: does it know whether the current step is a backtrack, a verification, or a commit?
+    Retrieval budget: does it account for the token cost of retrieval calls jointly with reasoning cost?
+    Formal guarantee: does it come with a coverage proof? EventBudget's Stage A achieves marginal conformal coverage (H4). Conditional coverage is a design goal, not yet pre-registered.
+  </aside>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════
+     PART II BANNER
+════════════════════════════════════════════════════════════ -->
+<section class="part-banner">
+  <div class="part-num">Part II</div>
+  <div class="part-title">EventBudget:<br>The Hawkes-Process Approach</div>
+  <div class="part-sub">MTPP formalism · architecture · Stage A &amp; B · GRPO training · Theorem 1</div>
+  <aside class="notes">Part two. Now I'll explain our approach in detail.</aside>
+</section>
+
+<!-- ═══════════════════════════════════════════ SLIDE: CORE IDEA -->
+<section>
+  <h2>Core Idea in One Picture</h2>
+  <div class="grid2">
+    <div>
+      <div class="fbox" style="margin-bottom:.7em">
+        <strong>Observation:</strong> A reasoning chain emits a stream of typed events at irregular times.
+      </div>
+      <div style="font-size:.85em;text-align:center;padding:.5em;background:rgba(0,0,0,.3);border-radius:5px;margin-bottom:.7em">
+        <span class="etag">subgoal-done</span>&nbsp;<span class="etag">backtrack</span>&nbsp;<span class="etag">verify</span>&nbsp;<span class="etag">retrieval-call</span>&nbsp;<span class="etag">commit</span>
+        <div style="font-size:.8em;opacity:.6;margin-top:.3em">t=0 ────────────────────────── t=T</div>
+      </div>
+      <div class="fbox">
+        <strong>Model:</strong> Each event type $k$ has a conditional intensity (instantaneous rate):
+        $$ \lambda_k(t \mid \mathcal{H}_t) = \mu_k + \sum_{j: t_j < t} \phi_{k,k_j}(t - t_j) $$
+        where $k_j$ is the type of the $j$-th event and $\mathcal{H}_t$ = history before $t$.
+      </div>
+    </div>
+    <div>
+      <div class="fbox2" style="margin-bottom:.7em">
+        <strong>Budget control:</strong> Cumulative expected events through time $T$:
+        $$ \Lambda_k(t, B_{\max}) = \int_0^t \lambda_k(s \mid \mathcal{H}_s)\, ds $$
+        Total cost $= \sum_k c_k \Lambda_k(T)$. Stop when $\sum_k c_k \Lambda_k(t) \geq B_{\max}$.
+      </div>
+      <div class="method">
+        <div class="title">Why this is better</div>
+        <div class="sub">
+          The intensity $\lambda_k(t)$ captures <em>how past events causally increase or decrease future event rates.</em>
+          Three backtracks raises $\lambda_{\text{commit}}$ less than one backtrack followed by a verify.
+        </div>
+      </div>
+    </div>
+  </div>
+  <aside class="notes">
+    The core innovation is modeling the reasoning chain as a marked temporal point process.
+    Instead of looking at a scalar like perplexity, we track typed events and their occurrence times.
+    The Hawkes process models how past events causally influence future event rates — this is the key capability missing from all existing approaches.
+  </aside>
+</section>
+
+<!-- ═══════════════════════════════════════════ SLIDE: WHY HAWKES -->
+<section>
+  <h2>Temporal Point Processes — From Scratch</h2>
+  <div class="grid2">
+    <div>
+      <div class="method">
+        <div class="title">What is a point process?</div>
+        <div class="sub">
+          A random sequence of event times $t_1 &lt; t_2 &lt; \ldots &lt; t_N$ in $[0, T]$.<br>
+          Characterized by its <strong>conditional intensity</strong>:
+          $$ \lambda(t \mid \mathcal{H}_t) = \lim_{\Delta \to 0} \frac{P(\text{event in } [t, t+\Delta] \mid \mathcal{H}_t)}{\Delta} $$
+          This is the instantaneous rate given all past events.
+        </div>
+      </div>
+      <div class="method">
+        <div class="title">What makes Hawkes special?</div>
+        <div class="sub">
+          Hawkes process: each past event <em>excites</em> the rate for future events:
+          $$ \lambda(t) = \mu + \sum_{t_i < t} \phi(t - t_i), \quad \phi(\tau) = \alpha e^{-\beta \tau} $$
+          Events cluster: one event makes more events likely. This matches reasoning: one backtrack triggers more backtracks.
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="fbox" style="margin-top:.3em">
+        <strong>Generalized signed multivariate Hawkes:</strong><br>
+        Each event has a type (mark) $k \in \{1,\ldots,K\}$.<br>
+        Signed kernel matrix $[\phi_{kk'}]$ with $\alpha_{kk'} \in \mathbb{R}$:<br>
+        $\phi_{kk'} > 0$ = excitation, $\phi_{kk'} < 0$ = inhibition.
+        $$ \lambda_k(t) = \text{softplus}\!\left(\mu_k + \sum_{k'=1}^{K} \sum_{t_i^{k'} < t} \phi_{kk'}(t - t_i^{k'})\right) $$
+        Softplus ensures $\lambda_k(t) \geq 0$ even with negative kernels.
+      </div>
+      <div class="fbox2" style="margin-top:.8em">
+        <strong>Why not RNN / Transformer?</strong><br>
+        Hawkes gives: (1) interpretable signed causal structure in $[\phi_{kk'}]$, (2) tractable intensity, (3) direct integration $\Lambda_k(t)$ for budget forecasting.
+      </div>
+    </div>
+  </div>
+  <aside class="notes">
+    For those unfamiliar with point processes: a point process is a model for random event times.
+    The conditional intensity lambda(t | H_t) is the instantaneous event rate given history.
+    The Hawkes process adds mutual excitation: each event increases the rate of future events.
+    The multivariate (marked) version has cross-excitation: a retrieval-call might increase the rate of evidence-merge.
+    This is exactly the right model for reasoning chains where events causally influence each other.
+  </aside>
+</section>
+
+<!-- ═══════════════════════════════════════════ SLIDE: HAWKES IN ACTION (SVG) -->
+<section>
+  <h2>Hawkes in Action: Intensity During LLM Reasoning</h2>
+  <p style="font-size:.8em;opacity:.7;margin-bottom:.4em">
+    Two intensity curves respond to observed events — exactly the signal EventBudget uses to decide stop/continue.
+  </p>
+
+  <svg viewBox="0 0 860 212" xmlns="http://www.w3.org/2000/svg"
+       style="width:100%;height:auto;display:block;">
+    <rect width="860" height="212" fill="#0d1117" rx="5"/>
+    <rect x="52" y="14" width="790" height="140" fill="#111827" rx="3"/>
+    <line x1="52" y1="50"  x2="842" y2="50"  stroke="#1f2937" stroke-width="1"/>
+    <line x1="52" y1="85"  x2="842" y2="85"  stroke="#1f2937" stroke-width="1"/>
+    <line x1="52" y1="120" x2="842" y2="120" stroke="#1f2937" stroke-width="1"/>
+    <line x1="52" y1="133" x2="842" y2="133" stroke="#374151" stroke-width="1" stroke-dasharray="4,3"/>
+    <text x="847" y="136" font-size="9" fill="#6b7280" font-family="monospace">μ</text>
+    <line x1="842" y1="14" x2="842" y2="154" stroke="#4b5563" stroke-width="1" stroke-dasharray="3,3"/>
+    <text x="842" y="11" font-size="9" fill="#6b7280" font-family="monospace" text-anchor="middle">B_max</text>
+    <rect x="318" y="14" width="148" height="140" fill="rgba(239,68,68,.07)" rx="0"/>
+    <text x="392" y="30" font-size="10" fill="#f87171" text-anchor="middle" font-weight="bold">Stage A zone</text>
+    <text x="392" y="42" font-size="9"  fill="#f87171" text-anchor="middle">high λ_bt, flat λ_cm</text>
+    <path d="M 52,133 L 235,133 C 238,133 238,38 248,38 C 262,38 295,98 313,108 C 316,108 316,24 326,24 C 342,24 375,68 400,82 C 420,90 450,115 466,124 C 490,130 540,133 650,133 L 842,133"
+      fill="none" stroke="#f87171" stroke-width="2.5" stroke-linejoin="round"/>
+    <path d="M 318,133 C 326,133 326,24 336,24 C 352,24 375,68 400,82 C 420,90 450,115 466,133 Z"
+      fill="rgba(248,113,113,.12)"/>
+    <path d="M 52,152 L 440,152 C 490,152 530,148 560,140 C 600,128 640,100 680,68 C 710,48 750,38 800,36 L 842,36"
+      fill="none" stroke="#4ade80" stroke-width="2" stroke-dasharray="6,3"/>
+    <line x1="120" y1="140" x2="120" y2="154" stroke="#4ade80" stroke-width="1.5"/>
+    <polygon points="120,140 115,149 125,149" fill="#4ade80"/>
+    <text x="120" y="166" font-size="9" fill="#4ade80" text-anchor="middle">subgoal</text>
+    <line x1="196" y1="140" x2="196" y2="154" stroke="#60a5fa" stroke-width="1.5"/>
+    <polygon points="196,140 191,149 201,149" fill="#60a5fa"/>
+    <text x="196" y="166" font-size="9" fill="#60a5fa" text-anchor="middle">branch</text>
+    <line x1="240" y1="140" x2="240" y2="154" stroke="#f87171" stroke-width="2"/>
+    <polygon points="240,140 235,149 245,149" fill="#f87171"/>
+    <text x="240" y="166" font-size="9" fill="#f87171" text-anchor="middle">backtrack</text>
+    <line x1="318" y1="140" x2="318" y2="154" stroke="#f87171" stroke-width="2"/>
+    <polygon points="318,140 313,149 323,149" fill="#f87171"/>
+    <text x="318" y="166" font-size="9" fill="#f87171" text-anchor="middle">backtrack</text>
+    <path d="M 248,50 C 270,30 305,30 314,42" fill="none" stroke="#f87171" stroke-width="1" stroke-dasharray="2,2" marker-end="url(#arr)"/>
+    <text x="272" y="26" font-size="9" fill="#f87171" text-anchor="middle">self-excitation</text>
+    <defs>
+      <marker id="arr" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto">
+        <path d="M0,0 L6,3 L0,6 Z" fill="#f87171"/>
+      </marker>
+    </defs>
+    <line x1="466" y1="140" x2="466" y2="154" stroke="#fbbf24" stroke-width="1.5"/>
+    <polygon points="466,140 461,149 471,149" fill="#fbbf24"/>
+    <text x="466" y="166" font-size="9" fill="#fbbf24" text-anchor="middle">verify</text>
+    <line x1="560" y1="140" x2="560" y2="154" stroke="#4ade80" stroke-width="1.5"/>
+    <polygon points="560,140 555,149 565,149" fill="#4ade80"/>
+    <text x="560" y="166" font-size="9" fill="#4ade80" text-anchor="middle">subgoal</text>
+    <line x1="700" y1="140" x2="700" y2="154" stroke="#a78bfa" stroke-width="2"/>
+    <polygon points="700,140 695,149 705,149" fill="#a78bfa"/>
+    <text x="700" y="166" font-size="9" fill="#a78bfa" text-anchor="middle">commit</text>
+    <path d="M 392,55 L 392,66" fill="none" stroke="#f87171" stroke-width="1" marker-end="url(#arr)"/>
+    <text x="14" y="90" font-size="10" fill="#9ca3af" text-anchor="middle" transform="rotate(-90,14,90)">intensity λ(t)</text>
+    <text x="447" y="208" font-size="10" fill="#9ca3af" text-anchor="middle">token budget consumed  →</text>
+    <line x1="56" y1="9" x2="82" y2="9" stroke="#f87171" stroke-width="2.5"/>
+    <text x="85" y="13" font-size="10" fill="#f87171">λ_backtrack(t)</text>
+    <line x1="230" y1="9" x2="256" y2="9" stroke="#4ade80" stroke-width="2" stroke-dasharray="6,3"/>
+    <text x="259" y="13" font-size="10" fill="#4ade80">λ_commit(t)</text>
+    <rect x="415" y="3" width="9" height="9" fill="rgba(239,68,68,.22)" rx="1"/>
+    <text x="427" y="13" font-size="10" fill="#f87171">Stage A trigger zone</text>
+  </svg>
+
+  <div style="font-size:.72em;opacity:.75;margin-top:.3em;display:grid;grid-template-columns:1fr 1fr;gap:1em;">
+    <div>
+      <span style="color:#f87171">λ_backtrack</span> spikes after each backtrack and <strong>compounds</strong> — self-excitation.
+      Stage A fires when λ_backtrack stays elevated and λ_commit is still flat: the model is looping, budget is wasted.
+    </div>
+    <div>
+      <span style="color:#4ade80">λ_commit</span> rises only after subgoal-done events — cross-excitation signal that the model is converging.
+      Stage B uses Λ_commit(t, B_max) to estimate how many more tokens are needed.
+    </div>
+  </div>
+
+  <div style="font-size:.68em;opacity:.65;margin-top:.6em;margin-bottom:.15em">Same trace · what DEER-class methods see (scalar token entropy only):</div>
+  <svg viewBox="0 0 860 92" xmlns="http://www.w3.org/2000/svg"
+       style="width:100%;height:auto;display:block;">
+    <rect width="860" height="92" fill="#0d1117" rx="5"/>
+    <rect x="52" y="8" width="790" height="68" fill="#111827" rx="3"/>
+    <rect x="318" y="8" width="148" height="68" fill="rgba(239,68,68,.05)" rx="0"/>
+    <line x1="52" y1="30" x2="842" y2="30" stroke="#f59e0b" stroke-width="1" stroke-dasharray="4,3"/>
+    <text x="847" y="33" font-size="9" fill="#f59e0b" font-family="monospace">θ</text>
+    <path d="M 52,64 L 90,56 L 130,62 L 170,44 L 210,52 L 240,34 L 260,40 L 290,28 L 320,38 L 340,26 L 370,36 L 400,28 L 430,38 L 466,30 L 500,46 L 540,52 L 580,42 L 620,50 L 660,44 L 700,32 L 740,48 L 780,52 L 820,50 L 842,54"
+      fill="none" stroke="#9ca3af" stroke-width="1.5"/>
+    <text x="250" y="22" font-size="13" fill="#f87171" text-anchor="middle" font-weight="bold">?</text>
+    <text x="295" y="22" font-size="13" fill="#f87171" text-anchor="middle" font-weight="bold">?</text>
+    <text x="340" y="22" font-size="13" fill="#f87171" text-anchor="middle" font-weight="bold">?</text>
+    <text x="400" y="22" font-size="13" fill="#f87171" text-anchor="middle" font-weight="bold">?</text>
+    <text x="466" y="22" font-size="13" fill="#f87171" text-anchor="middle" font-weight="bold">?</text>
+    <text x="700" y="22" font-size="13" fill="#f87171" text-anchor="middle" font-weight="bold">?</text>
+    <text x="14" y="42" font-size="10" fill="#9ca3af" text-anchor="middle" transform="rotate(-90,14,42)">H(p_t)</text>
+    <text x="56" y="19" font-size="10" fill="#f59e0b">H(p_t) · scalar, no event types, no history</text>
+    <text x="392" y="74" font-size="9" fill="#f87171" text-anchor="middle">looping zone</text>
+    <text x="583" y="74" font-size="9" fill="#4ade80" text-anchor="middle">recovery zone</text>
+    <line x1="318" y1="70" x2="466" y2="70" stroke="#f87171" stroke-width="0.8" stroke-dasharray="2,2"/>
+    <line x1="466" y1="70" x2="700" y2="70" stroke="#4ade80" stroke-width="0.8" stroke-dasharray="2,2"/>
+  </svg>
+  <div style="font-size:.7em;opacity:.7;margin-top:.2em">
+    DEER sees one noisy scalar and one threshold θ. The entropy profile inside the <span style="color:#f87171">looping zone</span> is indistinguishable from the profile inside the <span style="color:#4ade80">recovery zone</span> — both trigger θ crossings. Result: false stops on legitimate verify/subgoal sequences, or missed stops on genuine loops. No amount of threshold tuning recovers the <em>typed</em> signal above.
+  </div>
+
+  <aside class="notes">
+    Walk the audience through this left to right.
+    First backtrack: lambda_backtrack spikes from the base rate mu.
+    Second backtrack before lambda has fully decayed: the intensity compounds — self-excitation in action.
+    In the Stage A zone, lambda_backtrack is elevated, lambda_commit is flat — EventBudget fires Stage A: the model is unlikely to solve within budget.
+    After verify and subgoal-done, lambda_backtrack decays and lambda_commit rises sharply — cross-excitation from subgoal completion.
+    No scalar threshold can distinguish "backtracking but will recover" from "unrecoverable loop". The Hawkes integral over full history does.
+    The lower strip shows what a scalar method like DEER has access to on the same trace: the question marks are threshold crossings that the method cannot disambiguate. Same statistic, two completely different situations.
+  </aside>
+</section>
+
+<!-- ═══════════════════════════════════════════ SLIDE: PRELIMINARY RESULT -->
+<section>
+  <h2>Preliminary Result · Hawkes &gt; Poisson on MATH-500</h2>
+  <div class="grid2">
+    <div>
+      <div class="method">
+        <div class="title">Setup</div>
+        <div class="sub">
+          Model: Qwen-2.5-Math-7B (reasoning mode).<br>
+          Traces: MATH-500 CoT, $N \approx 1{,}500$ sessions.<br>
+          Events: Level-1+2 detector (regex + hidden-state classifier), $K=6$ types.<br>
+          Fit two models on held-out split: homogeneous Poisson $\lambda_k = \mu_k$ vs. multivariate Hawkes with exponential kernels.
+        </div>
+      </div>
+      <div class="fbox" style="margin-top:.7em;font-size:.85em">
+        <strong>Why this comparison?</strong> Poisson is the maximum-entropy baseline — it assumes independence of inter-event intervals. If Hawkes fits better, <em>history matters</em>: events are self- and cross-exciting, which is the founding assumption of EventBudget.
+      </div>
+    </div>
+    <div>
+      <table class="scorecard" style="font-size:.85em">
+        <tr>
+          <th>Metric</th><th>Poisson</th><th>Hawkes</th>
+        </tr>
+        <tr>
+          <td>Held-out log-likelihood ($\uparrow$)</td>
+          <td>$-$4,210</td>
+          <td><strong>$-$3,070</strong></td>
+        </tr>
+        <tr>
+          <td>AIC ($\downarrow$)</td>
+          <td>8,432</td>
+          <td><strong>6,212</strong></td>
+        </tr>
+        <tr>
+          <td>KS test on transformed intervals</td>
+          <td><span class="cross">✗</span> $p&lt;0.001$</td>
+          <td><span class="check">✓</span> $p = 0.31$</td>
+        </tr>
+        <tr>
+          <td>LR test ($H_0$: Poisson sufficient)</td>
+          <td colspan="2"><strong>rejected, $p &lt; 10^{-6}$</strong></td>
+        </tr>
+        <tr>
+          <td>Backtrack clustering coef.</td>
+          <td>1.0 (baseline)</td>
+          <td><strong>4.3×</strong></td>
+        </tr>
+      </table>
+      <div class="note-box" style="margin-top:.6em;font-size:.8em">
+        Hawkes passes the KS residual test; Poisson fails. Backtracks cluster 4× more than random — confirms self-excitation.
+      </div>
+    </div>
+  </div>
+  <div class="fbox2" style="margin-top:.6em;font-size:.85em">
+    <strong>Takeaway:</strong> this is a <em>necessary</em> condition for EventBudget. If reasoning had been Poisson, all our history-dependent machinery (intensity vector, kernel matrix $\phi_{kk'}$) would be spurious. It isn't.
+  </div>
+  <aside class="notes">
+    This is preliminary experimental validation on MATH-500 — Andrey's run earlier this month.
+    The key number is the KS test on Rosenblatt-transformed inter-event intervals. Under a correctly specified point-process model, these transform to uniform — Hawkes passes at p=0.31, Poisson fails at p&lt;0.001.
+    The backtrack clustering coefficient is the standard self-excitation diagnostic — backtracks cluster 4.3× more than independent-event null.
+    This does not prove EventBudget will work — only that the modeling premise is sound.
+    We'll replicate on other domains before claiming generality.
+  </aside>
+</section>
+
+<!-- ═══════════════════════════════════════════ SLIDE: ARCHITECTURE -->
+<section>
+  <h2>EventBudget Architecture</h2>
+  <div class="grid2">
+    <div>
+      <div class="method">
+        <div class="title">Hawkes Encoder</div>
+        <div class="sub">
+          Input: event history $\mathcal{H}_t = \{(t_i, k_i)\}$<br>
+          Outputs intensity vector $\boldsymbol{\lambda}(t) = [\lambda_1(t), \ldots, \lambda_K(t)]$<br><br>
+          Architecture: event embedding → positional encoding (relative time) → 4-layer Transformer → intensity head with softplus activation.
+          $$ \lambda_k(t) = \text{softplus}\left(W_k \cdot h_t + b_k\right) $$
+        </div>
+      </div>
+      <div class="method">
+        <div class="title">Budget Forecaster</div>
+        <div class="sub">
+          Numerical integration of $\Lambda_k(t) = \int_0^t \lambda_k(s)\,ds$<br>
+          Computes total expected cost: $C(t) = \sum_k c_k \Lambda_k(t)$<br>
+          Extrapolates $C(t + \Delta t)$ for lookahead planning.
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="fbox">
+        <strong>Full model specification:</strong>
+        <br><br>
+        $d_{\text{model}} = 256$, 4 Transformer layers, 8 heads<br>
+        $K = 6$ event types per domain<br>
+        Event embedding: $\mathbb{R}^{K} \to \mathbb{R}^{d}$ (one-hot + time encoding)<br><br>
+        Time encoding: $\text{TimeEnc}(\tau) = [\cos(\omega_1 \tau), \sin(\omega_1 \tau), \ldots]$<br>
+        Trainable frequencies $\omega_i$.
+      </div>
+      <div class="note-box" style="margin-top:.8em">
+        The Hawkes encoder is trained jointly with the LLM policy via GRPO. The encoder's intensity outputs feed both Stage A (feasibility) and Stage B (retrieval redistribution).
+      </div>
+    </div>
+  </div>
+  <aside class="notes">
+    The architecture has two main components.
+    The Hawkes encoder takes the event history and outputs an intensity vector — the instantaneous rate of each event type.
+    The budget forecaster integrates these intensities to predict total future cost.
+    Both are trained jointly with the LLM policy.
+  </aside>
+</section>
+
+<!-- ═══════════════════════════════════════════ SLIDE: STAGE A + B -->
+<section>
+  <h2>Stage A · Feasibility Gate &amp; Stage B · Budget Redistribution</h2>
+  <div class="grid2">
+    <div>
+      <div class="method">
+        <div class="title">Stage A — Early Exit / Feasibility</div>
+        <div class="sub">
+          Evaluates after every reasoning event (continuous criterion, not a discrete trigger).<br><br>
+          Computes cumulative forecast $\Lambda_{\text{commit}}(t, B_{\max})$: expected number of commit events before budget exhausted.<br><br>
+          If $\Lambda_{\text{commit}}(t, B_{\max}) &lt; \epsilon$ → problem is infeasible under current budget → <strong>exit early</strong> with best-so-far answer.<br><br>
+          Calibrated via split conformal prediction: $\epsilon$ set so that $P(\text{error at exit}) \leq \alpha$ marginally over the calibration set.
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="method">
+        <div class="title">Stage B — Retrieval Redistribution</div>
+        <div class="sub">
+          Active when current intensity $\lambda_{\text{retrieval}}(t)$ is high but budget is nearly exhausted.<br><br>
+          Computes: should we spend remaining budget on a retrieval call or on more reasoning?<br><br>
+          $$ \text{Decision}(t) = \arg\max_{a \in \{\text{retrieve}, \text{reason}\}} \mathbb{E}[\text{reward} \mid a, \mathcal{H}_t, B_{\text{rem}}] $$<br>
+          Correctness estimated via a lightweight surrogate $P(\text{correct} \mid a, \mathcal{H}_t, B_{\text{rem}})$ trained on labeled traces. Hawkes provides the event-sequence distribution $p(\text{future events} \mid a, \mathcal{H}_t)$ for sampling cost trajectories.
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="fbox" style="margin-top:.7em">
+    <strong>Key distinction from existing work:</strong>
+    The decision uses the <em>type</em> and <em>timing</em> of past events, not just total token count. Stage A early exit after <span class="etag">commit</span> is very different from early exit after <span class="etag">backtrack</span>.
+  </div>
+  <aside class="notes">
+    Stage A is the early exit mechanism. It asks: given what I've seen so far, is it realistic that I'll produce a correct answer before the budget runs out?
+    Stage B is the retrieval decision mechanism. It asks: given remaining budget, should I retrieve or keep reasoning?
+    Both decisions are made using the full event history, not just a scalar summary.
+    Stage A uses conformal prediction for a statistical guarantee on the exit decision.
+  </aside>
+</section>
+
+<!-- ═══════════════════════════════════════════ SLIDE: DOMAIN M EVENTS -->
+<section>
+  <h2>Domain M · Math Reasoning Events</h2>
+  <div class="grid2">
+    <div>
+      <table class="scorecard" style="font-size:.82em">
+        <tr><th>Event type</th><th>Trigger pattern</th><th>Cost $c_k$</th></tr>
+        <tr>
+          <td><span class="etag">backtrack</span></td>
+          <td>"Wait", "Actually", "Let me reconsider"</td>
+          <td>high (≈200 tok)</td>
+        </tr>
+        <tr>
+          <td><span class="etag">verify</span></td>
+          <td>"Let me check", "Verify:", recomputation</td>
+          <td>medium (≈80 tok)</td>
+        </tr>
+        <tr>
+          <td><span class="etag">branch</span></td>
+          <td>"Case 1:", "Alternatively"</td>
+          <td>medium (≈60 tok)</td>
+        </tr>
+        <tr>
+          <td><span class="etag">subgoal-done</span></td>
+          <td>"Therefore X=", "So we have"</td>
+          <td>low (≈20 tok)</td>
+        </tr>
+        <tr>
+          <td><span class="etag">failed-attempt</span></td>
+          <td>"This doesn't work", "Dead end"</td>
+          <td>high (≈150 tok)</td>
+        </tr>
+        <tr>
+          <td><span class="etag">commit</span></td>
+          <td>"The answer is", "Final answer:"</td>
+          <td>low (≈10 tok)</td>
+        </tr>
+      </table>
+    </div>
+    <div>
+      <div class="fbox" style="margin-top:.3em">
+        <strong>Example Hawkes excitation pattern:</strong><br><br>
+        <span class="etag">backtrack</span> → excites <span class="etag">verify</span> (+)<br>
+        <span class="etag">backtrack</span> → inhibits <span class="etag">commit</span> (−)<br>
+        <span class="etag">verify</span> → excites <span class="etag">commit</span> (+)<br>
+        <span class="etag">failed-attempt</span> → excites <span class="etag">backtrack</span> (+)<br>
+        <span class="etag">subgoal-done</span> → excites <span class="etag">commit</span> (+)
+      </div>
+      <div class="note-box" style="margin-top:.8em">
+        Domain M primary source: MATH-500, AIME problems solved by Qwen-2.5-Math-7B-Instruct with extended thinking.
+        Target: 55K reasoning traces.
+      </div>
+    </div>
+  </div>
+  <aside class="notes">
+    Domain M is math reasoning. We define 6 event types based on observable patterns in the reasoning text.
+    Each event type has an associated token cost — how many tokens does a typical backtrack consume?
+    The Hawkes model learns the excitation matrix: which events make which other events more or less likely.
+    The pattern shown here (backtrack inhibits commit, verify excites commit) should emerge from data training.
+  </aside>
+</section>
+
+<!-- ═══════════════════════════════════════════ SLIDE: DOMAIN R EVENTS -->
+<section>
+  <h2>Domain R · Adaptive RAG Events</h2>
+  <div class="grid2">
+    <div>
+      <table class="scorecard" style="font-size:.82em">
+        <tr><th>Event type</th><th>Trigger pattern</th><th>Cost $c_k$</th></tr>
+        <tr>
+          <td><span class="etag">retrieval-call</span></td>
+          <td>External search / API call</td>
+          <td>high (≈300 tok)</td>
+        </tr>
+        <tr>
+          <td><span class="etag">evidence-merge</span></td>
+          <td>Processing retrieved passage</td>
+          <td>medium (≈100 tok)</td>
+        </tr>
+        <tr>
+          <td><span class="etag">contradiction</span></td>
+          <td>"However, [source] says", conflict detected</td>
+          <td>medium (≈80 tok)</td>
+        </tr>
+        <tr>
+          <td><span class="etag">reasoning-step</span></td>
+          <td>Intermediate inference step</td>
+          <td>low (≈40 tok)</td>
+        </tr>
+        <tr>
+          <td><span class="etag">query-rewrite</span></td>
+          <td>"Let me search for", reformulated query</td>
+          <td>medium (≈60 tok)</td>
+        </tr>
+        <tr>
+          <td><span class="etag">commit</span></td>
+          <td>"Based on evidence, answer is"</td>
+          <td>low (≈15 tok)</td>
+        </tr>
+      </table>
+    </div>
+    <div>
+      <div class="fbox" style="margin-top:.3em">
+        <strong>Domain R Hawkes patterns:</strong><br><br>
+        <span class="etag">retrieval-call</span> → excites <span class="etag">evidence-merge</span> (+)<br>
+        <span class="etag">contradiction</span> → excites <span class="etag">query-rewrite</span> (+)<br>
+        <span class="etag">query-rewrite</span> → excites <span class="etag">retrieval-call</span> (+)<br>
+        <span class="etag">evidence-merge</span> → excites <span class="etag">commit</span> (+)<br>
+        <span class="etag">retrieval-call</span>×3 → inhibits further <span class="etag">retrieval-call</span> (−)
+      </div>
+      <div class="note-box" style="margin-top:.8em">
+        Domain R source: HotpotQA, MuSiQue, 2WikiMultiHopQA with multi-step retrieval traces. Stage B (budget redistribution) is specifically designed for this domain.
+      </div>
+    </div>
+  </div>
+  <aside class="notes">
+    Domain R is retrieval-augmented reasoning. Here the events include retrieval calls and evidence processing.
+    The key cross-domain difference: retrieval-call is expensive (300 tokens!) so budget management matters enormously.
+    The Hawkes model should learn that 3 consecutive retrieval-calls with contradictions signals a knowledge gap that more retrieval won't fix — inhibition of further retrieval-calls.
+  </aside>
+</section>
+
+<!-- ═══════════════════════════════════════════ SLIDE: COMPARISON TABLE -->
+<section>
+  <h2>EventBudget vs. Prior Art — Technical Comparison</h2>
+  <table class="scorecard" style="font-size:.79em">
+    <tr>
+      <th>Method</th><th>Decision signal</th><th>Causal history</th><th>Guarantee</th><th>Retrieval budget</th><th>Training</th>
+    </tr>
+    <tr>
+      <td>DEER / EntropyAT</td>
+      <td>Scalar entropy $H(p)$</td>
+      <td><span class="cross">✗</span> Memoryless</td>
+      <td>Marginal conformal</td>
+      <td><span class="cross">✗</span></td>
+      <td>SFT</td>
+    </tr>
+    <tr>
+      <td>FLARE / DRAGIN</td>
+      <td>Token prob / attn entropy</td>
+      <td><span class="cross">✗</span> Per-token</td>
+      <td>None</td>
+      <td>Implicit</td>
+      <td>None / SFT</td>
+    </tr>
+    <tr>
+      <td>SeaKR</td>
+      <td>LLM self-eval confidence</td>
+      <td><span class="pill pill-lo">Partial</span> per step</td>
+      <td>None</td>
+      <td><span class="cross">✗</span></td>
+      <td>SFT + RL</td>
+    </tr>
+    <tr>
+      <td>Self-RAG</td>
+      <td>Reflection tokens</td>
+      <td><span class="pill pill-lo">Partial</span> context window</td>
+      <td>None</td>
+      <td><span class="pill pill-lo">Partial</span></td>
+      <td>SFT</td>
+    </tr>
+    <tr>
+      <td>SelfBudgeter</td>
+      <td>Token count vs. budget</td>
+      <td><span class="cross">✗</span> Budget scalar only</td>
+      <td>None</td>
+      <td><span class="cross">✗</span></td>
+      <td>SFT + RL</td>
+    </tr>
+    <tr style="background:rgba(78,201,240,.07)">
+      <td><strong>EventBudget</strong></td>
+      <td>$\boldsymbol{\lambda}(t|\mathcal{H}_t)$ intensity vector</td>
+      <td><span class="check">✓</span> Full TPP history</td>
+      <td>Marginal conformal (Stage A, H4)</td>
+      <td><span class="check">✓</span> Joint $\sum_k c_k \Lambda_k$</td>
+      <td>GRPO (Phase 1+2)</td>
+    </tr>
+  </table>
+  <div class="note-box" style="margin-top:.8em">
+    Stage A achieves <strong>marginal conformal coverage</strong> (H4): $P(\text{error}) \leq \alpha$ averaged over the test distribution. Conditional coverage (per event-history stratum) is a design aspiration beyond the pre-registered hypotheses.
+  </div>
+  <aside class="notes">
+    The comparison table summarizes the technical differences.
+    The key row is EventBudget: decision signal is the full intensity vector (not a scalar), causal history is tracked via TPP, the Stage A guarantee is marginal conformal (H4), and retrieval budget is handled jointly.
+    Conditional conformal is a stronger property — guaranteeing coverage per query subgroup — but it is not yet pre-registered as H4 only tests marginal coverage.
+  </aside>
+</section>
+
+<!-- ═══════════════════════════════════════════ SLIDE: GRPO -->
+<section>
+  <h2><a href="https://arxiv.org/abs/2402.03300" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px dashed var(--accent-soft)">GRPO</a> Training — Reward Function <span class="cite"><a href="https://arxiv.org/abs/2402.03300" target="_blank" rel="noopener" style="color:var(--accent-soft)">(Shao et al., 2024)</a></span></h2>
+  <div class="grid2">
+    <div>
+      <div class="fbox" style="margin-bottom:.7em">
+        <strong>Reward decomposition:</strong>
+        $$ R = r_{\text{acc}} + r_{\text{budget}} + r_{\text{early}} + r_{\text{format}} $$
+      </div>
+      <div class="method">
+        <div class="title">$r_{\text{acc}}$ — Accuracy reward</div>
+        <div class="sub">
+          Outcome: +1 if final answer correct, 0 otherwise.<br>
+          For math: exact match after normalization.<br>
+          For RAG: F1 against gold answer.
+        </div>
+      </div>
+      <div class="method">
+        <div class="title">$r_{\text{budget}}$ — Token efficiency</div>
+        <div class="sub">
+          $r_{\text{budget}} = \mathbf{1}[\text{correct}] \cdot \left(1 - \frac{C_{\text{used}}}{B_{\max}}\right)$<br>
+          Zero if incorrect (no reward for cheap wrong answers).
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="method">
+        <div class="title">$r_{\text{early}}$ — Early exit bonus</div>
+        <div class="sub">
+          $r_{\text{early}} = \gamma \cdot \mathbf{1}[\text{Stage A exit}] \cdot \mathbf{1}[\text{correct}]$<br>
+          Rewards correct early exits to incentivize Stage A calibration.<br>
+          $\gamma = 0.3$ (hyperparameter).
+        </div>
+      </div>
+      <div class="method">
+        <div class="title">$r_{\text{format}}$ — Event annotation</div>
+        <div class="sub">
+          Small reward ($+0.05$) for correctly annotating reasoning steps with event tags. Encourages the model to maintain the event stream structure the encoder relies on.
+        </div>
+      </div>
+      <div class="fbox2" style="margin-top:.6em;font-size:.85em">
+        Training: Phase 1 (SFT on gold traces) → Phase 2 (GRPO RL) → Conformal calibration on held-out val set.
+      </div>
+    </div>
+  </div>
+  <aside class="notes">
+    GRPO is Group Relative Policy Optimization — similar to PPO but uses group-normalized rewards instead of a value function.
+    The reward has four components. Accuracy is primary. Budget efficiency is only rewarded for correct answers — we don't want the model to be efficient and wrong.
+    The early exit bonus and format reward are smaller but important for shaping the model's behavior toward the event-structured format we need.
+  </aside>
+</section>
+
+<!-- ═══════════════════════════════════════════ SLIDE: DPO ALTERNATIVE -->
+<section>
+  <h2><a href="https://arxiv.org/abs/2305.18290" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px dashed var(--accent-soft)">DPO</a> Alternative · Budget-Aware Preferences</h2>
+  <div class="grid2">
+    <div>
+      <div class="fbox" style="margin-bottom:.6em">
+        <strong>Budget-conditioned DPO loss:</strong>
+        $$\mathcal{L}_{\text{DPO-B}} = -\mathbb{E}_{(x, y_w, y_l, B)}\left[\log \sigma\!\left(\beta \Delta_{\pi/\pi_{\text{ref}}}\right)\right]$$
+        $$\Delta_{\pi/\pi_{\text{ref}}} = \log \tfrac{\pi(y_w | x, B)}{\pi_{\text{ref}}(y_w | x, B)} - \log \tfrac{\pi(y_l | x, B)}{\pi_{\text{ref}}(y_l | x, B)}$$
+        Budget $B$ is injected as a control token in the prompt; preferences are collected <em>at fixed $B$</em>.
+      </div>
+      <div class="method">
+        <div class="title">Preference pair construction</div>
+        <div class="sub">
+          <strong>P1 · Budget compliance:</strong> $y_w$ finishes within $B$, $y_l$ overruns.<br>
+          <strong>P2 · Equal accuracy, shorter:</strong> both correct; $y_w$ uses fewer tokens.<br>
+          <strong>P3 · Hawkes-informed:</strong> $y_w$ has lower $\int_0^T \sum_k c_k \lambda_k(t)\, dt$ — the pair is selected from traces where the intensity integral differs, not just token count.
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="method" style="margin-bottom:.5em">
+        <div class="title">Budget curriculum</div>
+        <div class="sub">
+          Start with $B = B_{\max}$ (loose) → anneal to $B = 0.4 B_{\max}$ over training.<br>
+          Monotone schedule; stronger selection pressure as model improves.<br>
+          <em>Rationale:</em> easy-to-hard reduces reward hacking (policy can't collapse to short nonsense in phase 1).
+        </div>
+      </div>
+      <div class="method" style="margin-bottom:.5em">
+        <div class="title">DPO vs. GRPO — when to pick which</div>
+        <div class="sub">
+          <strong>DPO:</strong> no explicit reward model; stable with sparse labels; budget enters via conditional preferences.<br>
+          <strong>GRPO:</strong> group-relative advantage; better when reward is dense and decomposable ($r_{\text{acc}} + r_{\text{budget}} + r_{\text{early}} + r_{\text{format}}$).<br>
+          Plan: DPO for Phase 1 (SFT warmup), GRPO for Phase 2 (fine-tuning with Hawkes signal).
+        </div>
+      </div>
+      <div class="note-box" style="font-size:.8em">
+        Preferences sourced from 2-run pairs on same prompt: each question answered at two budgets $(B, B')$, Hawkes integral selects the winner.
+      </div>
+    </div>
+  </div>
+  <aside class="notes">
+    This slide is new — it presents DPO as an alternative to GRPO for training the budget-aware policy.
+    The key novelty is the Hawkes-informed preference pair (P3). Standard DPO would compare on accuracy or token count. We compare on the Hawkes intensity integral, which is a finer-grained signal: it captures whether the trace had lots of backtracking (wasted tokens) or not.
+    The budget curriculum is borrowed from curriculum learning — starting with loose budgets prevents the model from collapsing to a trivial solution early in training.
+    Decision: we'll try both DPO and GRPO. DPO is simpler to implement and more stable; GRPO has tighter theoretical connection to our reward formulation.
+  </aside>
+</section>
+
+<!-- ═══════════════════════════════════════════ SLIDE: THEOREM 1 -->
+<section>
+  <h2>Theorem 1 — Convergence of Retrieval Spend</h2>
+  <div class="grid2">
+    <div>
+      <div class="fbox" style="margin-bottom:.6em">
+        <strong>Theorem 1 (a.s. convergence).</strong><br>
+        Under the EventBudget policy $\pi^*$ trained with GRPO reward $R$, with Hawkes encoder satisfying Assumptions A1–A3 (stationarity, bounded excitation norm, ergodic reward process):
+        $$ \frac{1}{N} \sum_{i=1}^{N} C_i^{\text{retrieval}} \xrightarrow{\text{a.s.}} C^* \leq \alpha B_{\max} $$
+        as $N \to \infty$, where $\alpha \in (0,1)$ is the target retrieval spend fraction.
+      </div>
+    </div>
+    <div>
+      <div class="method">
+        <div class="title">Assumptions A1–A3</div>
+        <div class="sub">
+          <strong>A1 (Stationarity):</strong> Hawkes intensity satisfies $\|\Phi\|_\infty &lt; 1$ (spectral radius condition — prevents intensity explosion).<br><br>
+          <strong>A2 (Bounded excitation):</strong> $\sup_t \lambda_k(t \mid \mathcal{H}_t) \leq M &lt; \infty$ a.s.<br><br>
+          <strong>A3 (Ergodicity):</strong> The Markov chain on event histories is geometrically ergodic.
+        </div>
+      </div>
+      <div class="note-box" style="margin-top:.6em;font-size:.82em">
+        <strong>Proof:</strong> (1) Stationarity of Hawkes under A1. (2) Under the stationary distribution (A3), GRPO optimization yields $\mathbb{E}[C^{\text{retrieval}}] \leq \alpha B_{\max}$ by reward design (penalized objective). (3) Birkhoff's ergodic theorem promotes this expectation to an a.s. time-average: $\frac{1}{N}\sum C_i^{\text{retrieval}} \xrightarrow{\text{a.s.}} \mathbb{E}[C^{\text{retrieval}}] \leq \alpha B_{\max}$.
+      </div>
+    </div>
+  </div>
+  <aside class="notes">
+    Theorem 1 is our main theoretical result. It says that in the long run, the policy will converge to spending no more than alpha times the budget on retrieval calls.
+    The three assumptions are standard for Hawkes processes. A1 is the stationarity condition — the spectral radius of the excitation matrix must be less than 1, otherwise the process can explode.
+    A3 (ergodicity) is what allows us to apply Birkhoff's ergodic theorem to get the almost-sure convergence.
+  </aside>
+</section>
+
+<!-- ═══════════════════════════════════════════ SLIDE: APPROX STATIONARITY -->
+<section>
+  <h2>From Theory to Practice · Approximate Stationarity</h2>
+  <div class="note-box" style="margin-bottom:.6em;font-size:.85em">
+    <strong>The gap:</strong> Theorem 1 requires $\|\Phi\|_\infty &lt; 1$ (strict stationarity). Real reasoning traces are only <em>approximately</em> stationary — phase shifts near the answer, warm-up at the start. What survives?
+  </div>
+  <div class="grid2">
+    <div>
+      <div class="method" style="margin-bottom:.5em">
+        <div class="title">Relaxation 1 — $\varepsilon$-stationary bound</div>
+        <div class="sub">
+          If $\|\Phi\|_\infty \leq 1 - \varepsilon$ only on a fraction $1 - \delta$ of the trace window:
+          $$\mathbb{E}[C^{\text{retrieval}}] \leq \alpha B_{\max} \cdot (1 + C_1 \delta + C_2 / \varepsilon)$$
+          Degrades gracefully — the guarantee loosens but does not vanish.
+        </div>
+      </div>
+      <div class="method">
+        <div class="title">Relaxation 2 — Piecewise stationarity</div>
+        <div class="sub">
+          Split the trace into quasi-stationary phases (change-point detection on intensity). Apply Theorem 1 per phase, union-bound aggregate.
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="fbox" style="margin-bottom:.6em">
+        <strong>Black-box Hawkes validator (proposed tool).</strong><br>
+        Input: any LLM $M$, domain $D$.<br>
+        <ol style="font-size:.88em;margin-top:.3em">
+          <li>Run $n$ probe queries from $D$ on $M$; extract events.</li>
+          <li>Fit Hawkes, compute $\widehat{\|\Phi\|}_\infty$ with bootstrap CI.</li>
+          <li>KS residual test: is point process well-specified?</li>
+          <li>Report: <strong>fit score</strong> $\in [0, 1]$ + decision threshold.</li>
+        </ol>
+        Output: "EventBudget applicable to $M$ on $D$: yes / caution / no."
+      </div>
+      <div class="note-box" style="font-size:.8em">
+        Complements theoretical guarantees: even when A1 cannot be proven, the validator gives an empirical pass/fail per model.
+      </div>
+    </div>
+  </div>
+  <aside class="notes">
+    This slide addresses a concrete question from the meeting: what do we do when stationarity doesn't hold?
+    Two directions. First, look for a weakened theorem — an approximately-stationary bound with graceful degradation. If spectral norm is epsilon-close to the boundary, the retrieval-spend bound loosens by a factor proportional to epsilon. This is in the spirit of perturbation bounds for Markov chains.
+    Second, a practical black-box validator: for any new LLM plus domain, run probe queries, fit Hawkes, check goodness-of-fit, and output a go/no-go decision. This is a deliverable by itself — it generalizes the framework beyond our specific training setup.
+    This addresses Dmitry's concern: we don't have to abandon the method when conditions aren't met; we have falsifiable probes.
+  </aside>
+</section>
+
+<!-- ═══════════════════════════════════════════ SLIDE: REASONING AUTHENTICITY -->
+<section>
+  <h2>Bonus Probe · Are the "Let Me Reconsider" Tokens Real?</h2>
+  <div class="grid2">
+    <div>
+      <div class="fbox" style="margin-bottom:.6em;font-size:.9em">
+        <strong>Concern.</strong> RL-tuned reasoners emit verbal markers ("hmm, let me reconsider", "wait, actually…") that may be <em>cosmetic</em> — learned to pad long CoT, not to signal a real state shift.<br>
+        Chinese-room failure mode: raise-right-hand tokens with no internal correlate.
+      </div>
+      <div class="method">
+        <div class="title">Hawkes as an authenticity probe</div>
+        <div class="sub">
+          Align textual markers $m_j$ with detected events.<br>
+          Compute lead-lag intensity:
+          $$\Delta\lambda_k(\delta) = \lambda_k(t_{m_j} + \delta) - \lambda_k(t_{m_j} - \delta)$$
+          for $\delta \in [50, 200]$ tokens.
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="method" style="margin-bottom:.5em">
+        <div class="title">Authentic reasoning</div>
+        <div class="sub">
+          $\lambda_{\text{backtrack}}$ spikes <strong>before</strong> the verbal marker — intensity leads language. The text reports what the model is already doing.
+        </div>
+      </div>
+      <div class="method" style="margin-bottom:.5em">
+        <div class="title">Cosmetic marker</div>
+        <div class="sub">
+          $\lambda_{\text{backtrack}}$ flat before marker, rises <strong>after</strong> — the marker is a trigger, not a report. Token habit, not state shift.
+        </div>
+      </div>
+      <div class="fbox2" style="font-size:.85em">
+        <strong>Side product:</strong> EventBudget becomes an interpretability diagnostic — it can flag pre-training corpora or RL-tuned models where reasoning tokens lack internal support.
+      </div>
+    </div>
+  </div>
+  <aside class="notes">
+    This addresses the interpretability concern raised in discussion: do the surface tokens actually correspond to internal reasoning, or are they learned padding?
+    Our method operates on surface events only — but we can turn that into a feature. By comparing textual markers to intensity dynamics, we can distinguish reasoning that leads language (authentic) from language that triggers reasoning-shaped tokens (cosmetic).
+    Practical value: this is a diagnostic tool for the broader LLM community. It's a side product of EventBudget, not the main contribution, but it's cheap to add since we already have both the event stream and the textual markers.
+    This connects to Anthropic's interpretability research direction — without actually needing weight access.
+  </aside>
+</section>
+
+<!-- ═══════════════════════════════════════════ SLIDE: HYPOTHESES -->
+<section>
+  <h2>Falsifiable Hypotheses H0–H9</h2>
+  <div class="grid2" style="font-size:.82em">
+    <div>
+      <div class="method">
+        <div class="title">H0 — Event detector quality</div>
+        <div class="sub">≥90% F1 on held-out reasoning traces (gold-labeled by LLM judge).</div>
+      </div>
+      <div class="method">
+        <div class="title">H1 — Hawkes log-likelihood</div>
+        <div class="sub">Hawkes encoder achieves better held-out log-likelihood than Poisson baseline and RNN-TPP.</div>
+      </div>
+      <div class="method">
+        <div class="title">H2 — Stage A precision</div>
+        <div class="sub">Stage A early exit achieves ≥85% precision at 20% recall on infeasible queries.</div>
+      </div>
+      <div class="method">
+        <div class="title">H3 — Budget efficiency</div>
+        <div class="sub">EventBudget reduces token usage by ≥25% vs. unconstrained baseline at equal accuracy (MATH-500).</div>
+      </div>
+      <div class="method">
+        <div class="title">H4 — Conformal coverage</div>
+        <div class="sub">Stage A conformal coverage ≥ $1-\alpha$ on test set (marginal guarantee verified empirically).</div>
+      </div>
+    </div>
+    <div>
+      <div class="method">
+        <div class="title">H5 — Retrieval cap</div>
+        <div class="sub">Stage B limits retrieval spend to ≤$\alpha B_{\max}$ on ≥95% of test queries (Domain R).</div>
+      </div>
+      <div class="method">
+        <div class="title">H6 — Accuracy preservation</div>
+        <div class="sub">Accuracy drop ≤2 percentage points vs. unconstrained at 50% budget reduction.</div>
+      </div>
+      <div class="method">
+        <div class="title">H7 — Generalization</div>
+        <div class="sub">EventBudget trained on MATH-500 generalizes to AIME without retraining (≥70% efficiency gain preserved).</div>
+      </div>
+      <div class="method">
+        <div class="title">H8 — Cross-domain transfer</div>
+        <div class="sub">Domain M encoder applied zero-shot to Domain R achieves ≥70% of in-domain Domain R event-detection F1 (no Domain R training data used in the zero-shot run).</div>
+      </div>
+      <div class="method">
+        <div class="title">H9 — Excitation matrix interpretability</div>
+        <div class="sub">Learned $[\phi_{kk'}]$ matrix matches hand-coded causal structure: backtrack→verify positive, backtrack→commit negative. Note: these patterns are validation targets only — the matrix is learned purely from event co-occurrence, not from causal supervision.</div>
+      </div>
+    </div>
+  </div>
+  <aside class="notes">
+    We pre-register 10 hypotheses H0-H9. This is important for scientific integrity — we commit to these tests before seeing results.
+    H0 is a prerequisite: if the event detector doesn't work, nothing else matters.
+    H1 tests whether the Hawkes model is actually better than simpler baselines.
+    H3 is our main practical claim: 25% token reduction at equal accuracy.
+    H9 is a sanity check on interpretability — the learned excitation matrix should match our intuitions about causal structure.
+  </aside>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════
+     PART III BANNER
+════════════════════════════════════════════════════════════ -->
+<section class="part-banner">
+  <div class="part-num">Part III <span class="wip" style="font-size:.5em;vertical-align:middle">WIP</span></div>
+  <div class="part-title">Data Generation Pipeline</div>
+  <div class="part-sub">Why the dataset is the hard part · four-stage recipe · engineering challenges</div>
+  <aside class="notes">Part three. This is work in progress — I'll describe what we plan to build and what the hard parts are.</aside>
+</section>
+
+<!-- ═══════════════════════════════════════════ SLIDE: DOMAIN SELECTION -->
+<section>
+  <h2>Domain Selection · Three Arenas</h2>
+  <div class="grid3" style="gap:.7em">
+    <div class="fbox" style="padding:.4em .75em;margin:0">
+      <h3 style="margin-bottom:.2em;font-size:.95em">Arena M<br>Math reasoning</h3>
+      <div style="font-size:.76em;line-height:1.35">
+        <strong>Benchmarks:</strong> MATH-500, AIME, HLE (math).<br>
+        <strong>Regime:</strong> reasoning aligned with human derivation — backtrack / verify / subgoal-done are textual markers.<br>
+        <strong>Events:</strong> 6 types, CoT 500–4000 tok.<br>
+        <strong>Difficulty:</strong> 4 tiers — objective axis.
+      </div>
+    </div>
+    <div class="fbox" style="padding:.4em .75em;margin:0">
+      <h3 style="margin-bottom:.2em;font-size:.95em">Arena R<br>Adaptive RAG</h3>
+      <div style="font-size:.76em;line-height:1.35">
+        <strong>Benchmarks:</strong> HotpotQA, 2WikiMultiHopQA.<br>
+        <strong>Regime:</strong> framework-driven — reasoning alternates with tool calls.<br>
+        <strong>Events:</strong> 6 types incl. retrieval-call, evidence-merge, contradiction.<br>
+        <strong>Cost:</strong> retrieval as separate budget line — tests joint $\sum_k c_k \Lambda_k$.
+      </div>
+    </div>
+    <div class="fbox" style="padding:.4em .75em;margin:0">
+      <h3 style="margin-bottom:.2em;font-size:.95em">Arena H<br>Broad reasoning</h3>
+      <div style="font-size:.76em;line-height:1.35">
+        <strong>Candidate:</strong> <a href="https://arxiv.org/abs/2501.14249" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px dashed currentColor">HLE</a> — 500+ q, mixed corpus (math + physics + CS + humanities).<br>
+        <strong>Regime:</strong> event-taxonomy stability across subjects.<br>
+        <strong>Purpose:</strong> generality claim — zero-shot transfer of 6-type vocab ⇒ not math-specific.
+      </div>
+    </div>
+  </div>
+  <div class="grid2" style="margin-top:.55em;gap:.8em">
+    <div class="method" style="padding:.4em .75em;margin:0">
+      <div class="title" style="font-size:.9em">Why not computer-use / agentic</div>
+      <div class="sub" style="font-size:.75em;line-height:1.35">
+        Sonnet-4.6 agentic traces: &lt;200 tokens of CoT per action. Reasoning lives <em>in the action sequence</em>, not in hidden CoT — event model underfit.
+      </div>
+    </div>
+    <div class="method" style="padding:.4em .75em;margin:0">
+      <div class="title" style="font-size:.9em">Model choice policy</div>
+      <div class="sub" style="font-size:.75em;line-height:1.35">
+        We study <em>reasoning strategies</em>, not SOTA. Mid-size open models (Qwen-2.5-Math-7B, <a href="https://arxiv.org/abs/2407.21783" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px dashed currentColor">Llama-3-70B</a>) suffice. Multi-seed ≥3 quantifies dispersion.
+      </div>
+    </div>
+  </div>
+  <aside class="notes">
+    Three domains rather than two — "три психологически лучше, чем два".
+    Arena M tests the method where reasoning is human-legible and structured. Arena R tests it where reasoning is framework-driven (tool calls). Arena H (Humanity's Last Exam) tests generality across subjects with mixed reasoning styles.
+    We explicitly exclude computer-use agentic reasoning: Andrey's earlier probe on Anthropic's CU corpus showed CoT traces are too short (less than 200 tokens) — event model would be underfit.
+    On model choice: we're not chasing SOTA. The scientific contribution is the method; mid-size open models are the right fit. Multi-seed runs are mandatory — reviewers will ask why we only ran one seed given the well-known dispersion of reasoning-mode outputs.
+  </aside>
+</section>
+
+<!-- ═══════════════════════════════════════════ SLIDE: WHY DATASET IS HARD -->
+<section>
+  <h2>Why the Dataset is the Hard Part <span class="wip">WIP</span></h2>
+  <div class="grid2">
+    <div>
+      <div class="method">
+        <div class="title">Problem 1: No existing TPP reasoning dataset</div>
+        <div class="sub">
+          Published datasets have final answers, sometimes CoT text. None have time-stamped, typed reasoning events. We must create this from scratch.
+        </div>
+      </div>
+      <div class="method">
+        <div class="title">Problem 2: Event detection is hard</div>
+        <div class="sub">
+          Regex: fast but noisy (30% false positive rate on early tests).<br>
+          Classifier on hidden states: better but requires labeled data.<br>
+          LLM judge: accurate but slow (0.5s/trace on GPU).<br>
+          → Need a three-level funnel.
+        </div>
+      </div>
+      <div class="method">
+        <div class="title">Problem 3: Labels require running models at scale</div>
+        <div class="sub">
+          55K traces × Qwen-7B × extended thinking = significant compute.<br>
+          Stage A labels require oracle "would this have committed correctly?" — requires running model twice per trace.
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="fbox">
+        <strong>Analogous challenge in prior work:</strong><br>
+        Self-RAG (Asai et al. 2023) needed 150K traces annotated with reflection tokens. They used GPT-4 as the annotator — at $20/1000 queries this cost ~$3K just for annotation.
+        <br><br>
+        We aim to use open-weight models (Qwen-2.5) to reduce cost, at the price of lower annotation quality.
+      </div>
+      <div class="note-box" style="margin-top:.8em">
+        This is why Part III is marked WIP: the pipeline design is complete, but the actual data generation has not started.
+      </div>
+    </div>
+  </div>
+  <aside class="notes">
+    The dataset is the critical dependency for everything else. You can't train the Hawkes encoder without event sequences.
+    Three distinct problems: no existing dataset, event detection is noisy, and ground-truth labels require expensive model runs.
+    Self-RAG faced similar problems and spent $3K on annotation. We plan to use open-weight models to reduce this cost.
+  </aside>
+</section>
+
+<!-- ═══════════════════════════════════════════ SLIDE: PIPELINE OVERVIEW -->
+<section>
+  <h2>Four-Stage Pipeline Overview <span class="wip">WIP</span></h2>
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.8em;margin-top:.5em">
+    <div class="fbox" style="border-color:var(--accent2)">
+      <h3 style="font-size:.9em">Stage 1<br>Trace collection</h3>
+      <div style="font-size:.8em">
+        Run Qwen-2.5-Math-7B-Instruct on MATH-500 + AIME with extended thinking.<br><br>
+        55K traces, each with full CoT text + final answer.<br><br>
+        Filter: keep traces &gt;200 tokens.
+      </div>
+    </div>
+    <div class="fbox" style="border-color:var(--accent2)">
+      <h3 style="font-size:.9em">Stage 2<br>Event detection</h3>
+      <div style="font-size:.8em">
+        Three-level funnel:<br>
+        1. Regex patterns (fast, noisy)<br>
+        2. Binary classifier on hidden states<br>
+        3. LLM judge (gold set only)<br><br>
+        Output: event stream $(t_i, k_i)$ per trace.
+      </div>
+    </div>
+    <div class="fbox" style="border-color:var(--accent2)">
+      <h3 style="font-size:.9em">Stage 3<br>Stage A/B labels</h3>
+      <div style="font-size:.8em">
+        For each trace: find first correct commit.<br>
+        Label all events before it as "pre-commit."<br><br>
+        Stage A label: is problem feasible at each event?<br>
+        Stage B label: would retrieval here have helped?
+      </div>
+    </div>
+    <div class="fbox" style="border-color:var(--accent2)">
+      <h3 style="font-size:.9em">Stage 4<br>Dataset packaging</h3>
+      <div style="font-size:.8em">
+        <code>HawkesTrainSample</code> dataclass:<br>
+        event_times, event_types, budget_used, stage_a_label, stage_b_label, answer_correct.<br><br>
+        Train/val/test: 80/10/10%.
+      </div>
+    </div>
+  </div>
+  <aside class="notes">
+    The four stages are sequential and each depends on the previous.
+    Stage 1 is straightforward — run the model and save traces.
+    Stage 2 is the hard engineering work — building and evaluating the three-level event detector.
+    Stage 3 requires the "oracle" question: at what point was the problem solvable?
+    Stage 4 packages everything into a format the Hawkes encoder can train on.
+  </aside>
+</section>
+
+<!-- ═══════════════════════════════════════════ SLIDE: STAGE 2 DETECTOR -->
+<section>
+  <h2>Stage 2 · Three-Level Event Detector <span class="wip">WIP</span></h2>
+  <div class="grid2">
+    <div>
+      <div class="method">
+        <div class="title">Level 1 — Regex (speed: &lt;1ms/trace)</div>
+        <div class="sub">
+          Pattern matching on CoT text segments.<br>
+          <code>backtrack</code>: <code>/wait|actually|let me reconsider/i</code><br>
+          <code>verify</code>: <code>/let me check|verify:|double.check/i</code><br>
+          <code>commit</code>: <code>/the answer is|\\boxed\{/i</code><br>
+          Recall ≈95%, Precision ≈70%. Used for initial filtering.
+        </div>
+      </div>
+      <div class="method">
+        <div class="title">Level 2 — Classifier (speed: ~10ms/trace)</div>
+        <div class="sub">
+          Logistic regression on 256-dim hidden state from LLM at segment boundary.<br>
+          Trained on Level 3 gold labels.<br>
+          Expected F1 ≈87% based on similar approaches in Self-RAG.
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="method">
+        <div class="title">Level 3 — LLM Judge (speed: ~500ms/trace)</div>
+        <div class="sub">
+          Prompt to Qwen-2.5-72B-Instruct:<br>
+          <em>"Given this reasoning segment, classify the cognitive action: [backtrack / verify / branch / subgoal-done / failed-attempt / commit]"</em><br>
+          Applied to a random 5% sample → gold set of ~2750 traces.
+        </div>
+      </div>
+      <div class="fbox" style="margin-top:.7em">
+        <strong>Funnel logic:</strong><br>
+        All traces → Level 1 → Level 2 for regex-flagged events → Level 3 for disagreements.
+        Final detector: Level 2 predictions, calibrated against Level 3 gold labels.
+      </div>
+    </div>
+  </div>
+  <aside class="notes">
+    The three-level funnel is designed to balance speed and accuracy.
+    Level 1 (regex) is applied to everything — fast but noisy.
+    Level 2 (hidden state classifier) is applied to the events flagged by Level 1 — better accuracy.
+    Level 3 (LLM judge) is applied only to a sample to create a gold set for calibrating Level 2.
+    This is similar to how Self-RAG built its reflection token annotations, but cheaper because we use a smaller judge model.
+  </aside>
+</section>
+
+<!-- ═══════════════════════════════════════════ SLIDE: STAGE 3 LABELS -->
+<section>
+  <h2>Stage 3 · Stage A / B Labeling Algorithm <span class="wip">WIP</span></h2>
+  <div class="grid2">
+    <div>
+      <div class="fbox">
+        <strong><code>find_first_correct_commit</code> algorithm:</strong>
+        <pre style="font-size:.72em;margin:.5em 0 0;background:transparent;padding:0"><code class="python">def find_first_correct_commit(trace, oracle):
+    events = trace.events
+    for i, event in enumerate(events):
+        if event.type == "commit":
+            answer = extract_answer(
+                trace.text[:event.char_pos]
+            )
+            if oracle.is_correct(answer, trace.gold):
+                return i  # first correct commit index
+    return None  # no correct commit found</code></pre>
+      </div>
+    </div>
+    <div>
+      <div class="method">
+        <div class="title">Stage A label</div>
+        <div class="sub">
+          For each event $e_i$ in trace, Stage A label = 1 if <code>find_first_correct_commit</code> returns an index $j > i$ with $C(t_j) \leq B_{\max}$.
+          <br>i.e., "at this point in the trace, the problem is still solvable within budget."
+        </div>
+      </div>
+      <div class="method" style="margin-top:.6em">
+        <div class="title">Stage B label</div>
+        <div class="sub">
+          For each <span class="etag">retrieval-call</span> event, Stage B label = 1 if the next <span class="etag">answer-commit</span> after this retrieval is correct, AND removing this retrieval would have made the commit incorrect.
+          <br>i.e., "this retrieval was load-bearing."
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="note-box" style="margin-top:.7em;font-size:.85em">
+    Stage A labels: run oracle forward from each event — is a correct commit reachable before $B_{\max}$? Stage B labels require counterfactual evaluation: run model with vs. without each retrieval call. Both require model re-execution — the main compute bottleneck.
+  </div>
+  <aside class="notes">
+    The labeling algorithm is straightforward but computationally expensive.
+    For Stage A: at each event, does the problem remain solvable within budget? This requires knowing the future — we use the gold answer as oracle.
+    For Stage B: was this retrieval actually helpful? This requires counterfactual evaluation — what would have happened without the retrieval?
+    The counterfactual evaluation means running the model twice per retrieval event per trace.
+  </aside>
+</section>
+
+<!-- ═══════════════════════════════════════════ SLIDE: OPEN CHALLENGES -->
+<section>
+  <h2>Open Engineering Challenges <span class="wip">WIP</span></h2>
+  <div class="grid3">
+    <div class="method">
+      <div class="title">Challenge 1<br>Timestamp alignment</div>
+      <div class="sub" style="font-size:.8em">
+        Token timestamps are not naturally available from batch inference. Must record per-token generation time, which requires single-stream inference (no batching) or careful profiling.
+      </div>
+    </div>
+    <div class="method">
+      <div class="title">Challenge 2<br>Event detector calibration</div>
+      <div class="sub" style="font-size:.8em">
+        Level 2 classifier trained on Level 3 gold labels. Gold set is 5% sample — may not cover all event types evenly. Need stratified sampling to ensure rare events (e.g., <span class="etag">failed-attempt</span>) are in the gold set.
+      </div>
+    </div>
+    <div class="method">
+      <div class="title">Challenge 3<br>Counterfactual evaluation</div>
+      <div class="sub" style="font-size:.8em">
+        Stage B labels require counterfactual: "what if this retrieval hadn't happened?" Running model from each retrieval point is expensive. Exploring use of cached KV states to reduce cost.
+      </div>
+    </div>
+    <div class="method">
+      <div class="title">Challenge 4<br>Domain R traces</div>
+      <div class="sub" style="font-size:.8em">
+        Multi-hop RAG reasoning traces require a retrieval-augmented model. Need to instrument a RAG system to log retrieval calls as TPP events. HotpotQA with Contriever retriever is the planned setup.
+      </div>
+    </div>
+    <div class="method">
+      <div class="title">Challenge 5<br>Hawkes stationarity</div>
+      <div class="sub" style="font-size:.8em">
+        Need to verify Assumption A1 ($\|\Phi\|_\infty < 1$) on trained encoder. If violated, intensity can diverge on long traces. Plan: regularize excitation matrix norm during training.
+      </div>
+    </div>
+    <div class="method">
+      <div class="title">Challenge 6<br>Training stability</div>
+      <div class="sub" style="font-size:.8em">
+        GRPO is known to be unstable with sparse rewards (correct/incorrect). Plan to use dense shaping rewards (format + event annotation) to stabilize early training.
+      </div>
+    </div>
+  </div>
+  <aside class="notes">
+    Six open challenges. The first is subtle: to fit a temporal point process, we need actual timestamps, not just event order. Batch inference doesn't give us per-token times.
+    Challenge 3 (counterfactual) is the most expensive: running the model from each retrieval point.
+    Challenge 5 is a theoretical requirement: if the stationarity assumption is violated, the Hawkes process can produce infinite intensity — a catastrophic failure mode.
+  </aside>
+</section>
+
+
+<!-- ════════════════════════════════════════════════════════════
+     SUMMARY
+════════════════════════════════════════════════════════════ -->
+<section>
+  <h2>Summary</h2>
+  <div class="grid2">
+    <div>
+      <div class="method">
+        <div class="title">Part I — Landscape</div>
+        <div class="sub">
+          Three families of budget-aware reasoning: token throttling, budget modeling, adaptive retrieval.<br>
+          All reduce reasoning to scalar signals; none model the typed event structure of reasoning chains.
+        </div>
+      </div>
+      <div class="method">
+        <div class="title">Part II — EventBudget</div>
+        <div class="sub">
+          Model reasoning as MTPP with Hawkes intensity.<br>
+          Stage A: conformal early exit. Stage B: retrieval budget redistribution.<br>
+          GRPO training with 4-term reward. Theorem 1: a.s. convergence of retrieval spend.
+        </div>
+      </div>
+      <div class="method" style="border-color:var(--accent2)">
+        <div class="title" style="color:var(--accent2)">Part III — Pipeline <span class="wip">WIP</span></div>
+        <div class="sub">
+          Four stages: trace collection → event detection → A/B labeling → dataset packaging.<br>
+          Key challenges: timestamp recording, counterfactual evaluation, stationarity enforcement.
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="fbox">
+        <strong>The key claim:</strong><br><br>
+        Modeling the causal event structure of reasoning chains (via Hawkes process) enables better budget control decisions than scalar signals — with a formal convergence guarantee and conformal coverage guarantee.
+      </div>
+      <div class="fbox2" style="margin-top:.8em">
+        <strong>Next steps:</strong>
+        <ul>
+          <li>Build trace collection infrastructure (Week 1)</li>
+          <li>Prototype Level 1 event detector (Week 2)</li>
+          <li>Submit pre-registration to OSF</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  <aside class="notes">
+    Summary slide. Three parts, three takeaways.
+    The key claim is that causal event structure enables better decisions — this is what we need to prove experimentally.
+    The pre-registration commits us to specific hypotheses and falsification criteria before we see results.
+  </aside>
+</section>
+
+<!-- ═══════════════════════════════════════════ SLIDE: Q&A -->
+<section class="part-banner">
+  <div class="part-title">Questions?</div>
+  <div style="margin-top:1.5em;font-size:.95em">
+    Contact:<br>
+    <a href="mailto:karpovilia@gmail.com" style="color:var(--accent2)">karpovilia@gmail.com</a><br>
+    <a href="mailto:dilv_ru@yahoo.com" style="color:var(--accent2)">dilv_ru@yahoo.com</a>
+  </div>
+  <div style="margin-top:2em;font-size:.78em;opacity:.5">
+    Presentation built with reveal.js · MathJax3
+  </div>
+  <aside class="notes">
+    Thank you. I'm happy to go into any part in more depth — the Hawkes formalism, the GRPO reward design, the event detector architecture, or the conformal calibration procedure.
+  </aside>
+</section>
+
+</div><!-- /slides -->
+</div><!-- /reveal -->
+
+<script src="./dist/reveal.js"></script>
+<script src="./dist/plugin/highlight.js"></script>
+<script src="./dist/plugin/notes.js"></script>
+<script src="./dist/plugin/math.js"></script>
+<script>
+  Reveal.initialize({
+    hash: true,
+    width: 960,
+    height: 700,
+    margin: 0.04,
+    transition: "slide",
+    backgroundTransition: "fade",
+    center: false,
+    slideNumber: 'c/t',
+    showSlideNumber: 'all',
+    plugins: [RevealHighlight, RevealNotes, RevealMath.MathJax3],
+    mathjax3: {
+      mathjax: "https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js",
+      tex: {
+        inlineMath: [["$","$"]],
+        displayMath: [["$$","$$"]]
+      },
+      options: {
+        skipHtmlTags: ["script","noscript","style","textarea","pre","code"]
+      }
+    }
+  });
+</script>
+</body>
+</html>
