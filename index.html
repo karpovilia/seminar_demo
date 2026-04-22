@@ -512,7 +512,7 @@
 <!-- ═══════════════════════════════════════════ SLIDE: FAMILY 2a -->
 <section>
   <h2>Family 2 · Reasoning-Budget Modeling (Fine-tuning)</h2>
-  <div class="grid2">
+  <div class="grid2" style="grid-template-columns: 1.3fr 1fr">
     <div>
       <div class="method">
         <div class="title">SelfBudgeter (Chen et al., 2025)</div>
@@ -554,7 +554,7 @@
 <!-- ═══════════════════════════════════════════ SLIDE: FAMILY 2b — Entropy/Conformal -->
 <section>
   <h2>Family 2 · Confidence-Based Early Exit</h2>
-  <div class="grid2">
+  <div class="grid2" style="grid-template-columns: 1.3fr 1fr">
     <div>
       <div class="method">
         <div class="title">DEER (Zhang et al., 2025)</div>
@@ -595,7 +595,7 @@
 <!-- ═══════════════════════════════════════════ SLIDE: FAMILY 3a — Adaptive Retrieval (predictive) -->
 <section>
   <h2>Family 3 · Adaptive Retrieval — Predictive Triggering</h2>
-  <div class="grid2">
+  <div class="grid2" style="grid-template-columns: 1.3fr 1fr">
     <div>
       <div class="method">
         <div class="title">FLARE (Jiang et al., 2023)</div>
@@ -638,7 +638,7 @@
 <!-- ═══════════════════════════════════════════ SLIDE: FAMILY 3b — Self-Evaluate Retrieval -->
 <section>
   <h2>Family 3 · Adaptive Retrieval — Self-Evaluation</h2>
-  <div class="grid2">
+  <div class="grid2" style="grid-template-columns: 1.3fr 1fr">
     <div>
       <div class="method">
         <div class="title">Self-RAG (Asai et al., 2023)</div>
@@ -682,29 +682,29 @@
   <h2>The Fundamental Gap</h2>
   <div class="grid2">
     <div>
-      <h3>What existing methods see:</h3>
+      <h3>What existing methods <em>decide on</em>:</h3>
       <div class="fbox" style="margin-bottom:.6em">
-        A sequence of tokens $t_1, t_2, \ldots, t_n$ with associated scalar signals:<br>
-        perplexity, entropy, attention weight, budget counter
+        Decoders do maintain rich hidden state — but the stop/retrieve <em>gate</em> is driven by a scalar reduction of one step:<br>
+        token perplexity, entropy, attention entropy, budget counter, a single reflection token.
       </div>
-      <h3 style="margin-top:.8em">What is actually happening:</h3>
+      <h3 style="margin-top:.8em">What EventBudget adds:</h3>
       <div class="fbox2">
-        A typed event stream with causal structure:<br><br>
-        <span class="etag">backtrack</span> at $t=12.3$s<br>
-        <span class="etag">verify</span> at $t=14.1$s<br>
-        <span class="etag">retrieval-call</span> at $t=15.0$s<br>
-        <span class="etag">evidence-merge</span> at $t=15.9$s<br>
-        <span class="etag">commit</span> at $t=17.2$s
+        An explicit typed event stream over <em>token index</em> $\tau$ (not wall-clock — $\tau$ is platform-independent):<br><br>
+        <span class="etag">backtrack</span> at $\tau=1240$<br>
+        <span class="etag">verify</span> at $\tau=1420$<br>
+        <span class="etag">retrieval-call</span> at $\tau=1510$<br>
+        <span class="etag">evidence-merge</span> at $\tau=1600$<br>
+        <span class="etag">commit</span> at $\tau=1730$
       </div>
     </div>
     <div>
       <h3>The missing capability:</h3>
       <div class="method" style="margin-bottom:.5em">
         <div class="title">History-dependent rate prediction</div>
-        <div class="sub">After seeing 3 backtracks in 10 seconds, how likely is the next token to be another backtrack vs. a commit? Existing models cannot answer this.</div>
+        <div class="sub">After seeing 3 backtracks in the last 200 tokens, how likely is the next event to be another backtrack vs. a commit? Scalar gates cannot answer this.</div>
       </div>
       <div class="method" style="margin-bottom:.5em">
-        <div class="title">Cross-event cost accounting</div>
+        <div class="title">Cross-type cost accounting</div>
         <div class="sub">A retrieval call costs $c_r$ tokens. A backtrack loop costs $c_b$ tokens. Total expected spend is $\sum_k c_k \cdot \Lambda_k(T)$ — not just "tokens so far."</div>
       </div>
       <div class="method">
@@ -714,9 +714,9 @@
     </div>
   </div>
   <aside class="notes">
-    This is the key insight motivating our work. All existing methods reduce the reasoning chain to a scalar.
-    But reasoning has structure: there are backtracks, verifications, retrievals, commits. These are different events with different implications for future cost and accuracy.
-    A model that can track this event structure can make much better decisions about when to stop or retrieve.
+    The contrast here is between the *decision signal*, not the internal state. Modern decoders do maintain rich sequential hidden state — we do not deny that. What we claim is that the stop/retrieve *gate* is scalar: a single-step reduction.
+    EventBudget replaces that scalar gate with a typed-event vector process.
+    Time is measured in token index tau, not wall-clock seconds — wall-clock depends on hardware, batching, and KV cache state, so it is unusable as a modeling variable.
   </aside>
 </section>
 
@@ -901,8 +901,9 @@
       <div class="method">
         <div class="title">Why this is better</div>
         <div class="sub">
-          The intensity $\lambda_k(t)$ captures <em>how past events causally increase or decrease future event rates.</em>
-          Three backtracks raises $\lambda_{\text{commit}}$ less than one backtrack followed by a verify.
+          The intensity $\lambda_k(t)$ captures <em>temporal dependence</em> — how past events excite or inhibit future rates.<br>
+          Three backtracks raises $\lambda_{\text{commit}}$ less than one backtrack followed by a verify.<br>
+          <span style="opacity:.8">(Statistical dependence, not identified causation — we do not run interventions.)</span>
         </div>
       </div>
     </div>
@@ -910,7 +911,7 @@
   <aside class="notes">
     The core innovation is modeling the reasoning chain as a marked temporal point process.
     Instead of looking at a scalar like perplexity, we track typed events and their occurrence times.
-    The Hawkes process models how past events causally influence future event rates — this is the key capability missing from all existing approaches.
+    Hawkes captures temporal dependence — events excite or inhibit the rates of future events. We deliberately do not call this "causal" in the identified sense (no interventions).
   </aside>
 </section>
 
@@ -948,7 +949,8 @@
       </div>
       <div class="fbox2" style="margin-top:.8em">
         <strong>Why not RNN / Transformer?</strong><br>
-        Hawkes gives: (1) interpretable signed causal structure in $[\phi_{kk'}]$, (2) tractable intensity, (3) direct integration $\Lambda_k(t)$ for budget forecasting.
+        Hawkes gives: (1) interpretable signed <em>excitation</em> matrix $[\phi_{kk'}]$ (not causal — statistical), (2) tractable intensity, (3) direct integration $\Lambda_k(t)$ for budget forecasting.<br>
+        Part of our baseline comparison: Neural Hawkes, Transformer-TPP, RNN-TPP.
       </div>
     </div>
   </div>
@@ -1091,7 +1093,12 @@
         </div>
       </div>
       <div class="fbox" style="margin-top:.7em;font-size:.85em">
-        <strong>Why this comparison?</strong> Poisson is the maximum-entropy baseline — it assumes independence of inter-event intervals. If Hawkes fits better, <em>history matters</em>: events are self- and cross-exciting, which is the founding assumption of EventBudget.
+        <strong>Why this comparison?</strong> Poisson is a <em>weak</em> baseline — any bursty process beats it. We use it as a sanity floor: if even Poisson weren't beaten, the modeling premise would be false.
+      </div>
+      <div class="fbox2" style="margin-top:.6em;font-size:.82em">
+        <strong>Planned strong baselines (H1 extension):</strong><br>
+        Markov event process · Hidden Markov (HMM) · RNN-TPP · Transformer-TPP (Zuo et al.) · <a href="https://arxiv.org/abs/1612.09328" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px dashed currentColor">Neural Hawkes</a> · Semi-Markov.<br>
+        The claim "history matters" is trivial; the claim we need is <em>which</em> history representation matters — that is the real test.
       </div>
     </div>
     <div>
@@ -1111,8 +1118,8 @@
         </tr>
         <tr>
           <td>KS test on transformed intervals</td>
-          <td><span class="cross">✗</span> $p&lt;0.001$</td>
-          <td><span class="check">✓</span> $p = 0.31$</td>
+          <td>$p&lt;0.001$</td>
+          <td><strong>$p = 0.31$</strong></td>
         </tr>
         <tr>
           <td>LR test ($H_0$: Poisson sufficient)</td>
@@ -1130,14 +1137,12 @@
     </div>
   </div>
   <div class="fbox2" style="margin-top:.6em;font-size:.85em">
-    <strong>Takeaway:</strong> this is a <em>necessary</em> condition for EventBudget. If reasoning had been Poisson, all our history-dependent machinery (intensity vector, kernel matrix $\phi_{kk'}$) would be spurious. It isn't.
+    <strong>Takeaway:</strong> this is a <em>necessary-but-not-sufficient</em> result. It rules out Poisson as a useful model for LLM reasoning events. It does <em>not</em> establish that Hawkes beats neural point-process baselines — that comparison is still to be run.
   </div>
   <aside class="notes">
-    This is preliminary experimental validation on MATH-500 — Andrey's run earlier this month.
-    The key number is the KS test on Rosenblatt-transformed inter-event intervals. Under a correctly specified point-process model, these transform to uniform — Hawkes passes at p=0.31, Poisson fails at p&lt;0.001.
-    The backtrack clustering coefficient is the standard self-excitation diagnostic — backtracks cluster 4.3× more than independent-event null.
-    This does not prove EventBudget will work — only that the modeling premise is sound.
-    We'll replicate on other domains before claiming generality.
+    Preliminary validation on MATH-500 — Andrey's run earlier this month. Hawkes beats homogeneous Poisson on log-likelihood, AIC, and KS residual test.
+    Poisson is a deliberately weak baseline; any bursty process beats it. The reviewer-level question is whether Hawkes beats Neural Hawkes, Transformer-TPP, and RNN-TPP. Those comparisons are planned under the H1 umbrella.
+    What this DOES rule out: the null hypothesis that inter-event intervals are independent. So "history matters" — but which history representation is best is an open question.
   </aside>
 </section>
 
@@ -1201,6 +1206,9 @@
           Calibrated via split conformal prediction: $\epsilon$ set so that $P(\text{error at exit}) \leq \alpha$ marginally over the calibration set.
         </div>
       </div>
+      <div class="note-box" style="margin-top:.4em;font-size:.78em">
+        <strong>Exchangeability caveat.</strong> Conformal guarantees require exchangeability of calibration and deployment samples. Adaptive stopping (policy shift across the horizon) can violate this. Mitigation: (i) calibrate under the <em>frozen deployed policy</em>, (ii) use weighted / online conformal for policy drift, (iii) report empirical coverage alongside the theoretical bound.
+      </div>
     </div>
     <div>
       <div class="method">
@@ -1232,38 +1240,41 @@
   <div class="grid2">
     <div>
       <table class="scorecard" style="font-size:.82em">
-        <tr><th>Event type</th><th>Trigger pattern</th><th>Cost $c_k$</th></tr>
+        <tr><th>Event type</th><th>Trigger pattern</th><th>Cost $c_k$ (mean ± std)*</th></tr>
         <tr>
           <td><span class="etag">backtrack</span></td>
           <td>"Wait", "Actually", "Let me reconsider"</td>
-          <td>high (≈200 tok)</td>
+          <td>210 ± 95</td>
         </tr>
         <tr>
           <td><span class="etag">verify</span></td>
           <td>"Let me check", "Verify:", recomputation</td>
-          <td>medium (≈80 tok)</td>
+          <td>78 ± 34</td>
         </tr>
         <tr>
           <td><span class="etag">branch</span></td>
           <td>"Case 1:", "Alternatively"</td>
-          <td>medium (≈60 tok)</td>
+          <td>62 ± 28</td>
         </tr>
         <tr>
           <td><span class="etag">subgoal-done</span></td>
           <td>"Therefore X=", "So we have"</td>
-          <td>low (≈20 tok)</td>
+          <td>22 ± 11</td>
         </tr>
         <tr>
           <td><span class="etag">failed-attempt</span></td>
           <td>"This doesn't work", "Dead end"</td>
-          <td>high (≈150 tok)</td>
+          <td>148 ± 72</td>
         </tr>
         <tr>
           <td><span class="etag">commit</span></td>
           <td>"The answer is", "Final answer:"</td>
-          <td>low (≈10 tok)</td>
+          <td>11 ± 5</td>
         </tr>
       </table>
+      <div style="font-size:.7em;opacity:.75;margin-top:.3em">
+        *Preliminary estimates, MATH-500 / Qwen-2.5-Math-7B, $n \approx$ 1,500 traces. High variance; numbers are not policy inputs — they are recalibrated per (model, domain) in Stage 2 of the pipeline.
+      </div>
     </div>
     <div>
       <div class="fbox" style="margin-top:.3em">
@@ -1282,7 +1293,7 @@
   </div>
   <aside class="notes">
     Domain M is math reasoning. We define 6 event types based on observable patterns in the reasoning text.
-    Each event type has an associated token cost — how many tokens does a typical backtrack consume?
+    The cost column shows preliminary empirical estimates (mean ± std) from MATH-500 traces — NOT hand-picked constants. These are high-variance and must be recalibrated per model-domain pair, because writing style differs across models (Qwen vs GPT).
     The Hawkes model learns the excitation matrix: which events make which other events more or less likely.
     The pattern shown here (backtrack inhibits commit, verify excites commit) should emerge from data training.
   </aside>
@@ -1294,38 +1305,41 @@
   <div class="grid2">
     <div>
       <table class="scorecard" style="font-size:.82em">
-        <tr><th>Event type</th><th>Trigger pattern</th><th>Cost $c_k$</th></tr>
+        <tr><th>Event type</th><th>Trigger pattern</th><th>Cost $c_k$ (mean ± std)*</th></tr>
         <tr>
           <td><span class="etag">retrieval-call</span></td>
           <td>External search / API call</td>
-          <td>high (≈300 tok)</td>
+          <td>305 ± 140</td>
         </tr>
         <tr>
           <td><span class="etag">evidence-merge</span></td>
           <td>Processing retrieved passage</td>
-          <td>medium (≈100 tok)</td>
+          <td>105 ± 48</td>
         </tr>
         <tr>
           <td><span class="etag">contradiction</span></td>
           <td>"However, [source] says", conflict detected</td>
-          <td>medium (≈80 tok)</td>
+          <td>82 ± 39</td>
         </tr>
         <tr>
           <td><span class="etag">reasoning-step</span></td>
           <td>Intermediate inference step</td>
-          <td>low (≈40 tok)</td>
+          <td>42 ± 20</td>
         </tr>
         <tr>
           <td><span class="etag">query-rewrite</span></td>
           <td>"Let me search for", reformulated query</td>
-          <td>medium (≈60 tok)</td>
+          <td>58 ± 26</td>
         </tr>
         <tr>
           <td><span class="etag">commit</span></td>
           <td>"Based on evidence, answer is"</td>
-          <td>low (≈15 tok)</td>
+          <td>16 ± 7</td>
         </tr>
       </table>
+      <div style="font-size:.7em;opacity:.75;margin-top:.3em">
+        *Preliminary pilot numbers on HotpotQA · recalibrated per (model, domain) at Stage 2 of the data pipeline. Not hand-tuned to favor any policy.
+      </div>
     </div>
     <div>
       <div class="fbox" style="margin-top:.3em">
@@ -1353,7 +1367,7 @@
   <h2>EventBudget vs. Prior Art — Technical Comparison</h2>
   <table class="scorecard" style="font-size:.79em">
     <tr>
-      <th>Method</th><th>Decision signal</th><th>Causal history</th><th>Guarantee</th><th>Retrieval budget</th><th>Training</th>
+      <th>Method</th><th>Decision signal</th><th>History dependence</th><th>Guarantee</th><th>Retrieval budget</th><th>Training</th>
     </tr>
     <tr>
       <td>DEER / EntropyAT</td>
@@ -1409,7 +1423,7 @@
   </div>
   <aside class="notes">
     The comparison table summarizes the technical differences.
-    The key row is EventBudget: decision signal is the full intensity vector (not a scalar), causal history is tracked via TPP, the Stage A guarantee is marginal conformal (H4), and retrieval budget is handled jointly.
+    The key row is EventBudget: decision signal is the full intensity vector (not a scalar), history dependence is tracked via TPP, the Stage A guarantee is marginal conformal (H4), and retrieval budget is handled jointly.
     Conditional conformal is a stronger property — guaranteeing coverage per query subgroup — but it is not yet pre-registered as H4 only tests marginal coverage.
   </aside>
 </section>
@@ -1604,7 +1618,7 @@
     <div>
       <div class="fbox" style="margin-bottom:.6em;font-size:.9em">
         <strong>Concern.</strong> RL-tuned reasoners emit verbal markers ("hmm, let me reconsider", "wait, actually…") that may be <em>cosmetic</em> — learned to pad long CoT, not to signal a real state shift.<br>
-        Chinese-room failure mode: raise-right-hand tokens with no internal correlate.
+        Failure mode: reconsideration tokens emitted with no internal state change — verbal habit rather than report.
       </div>
       <div class="method">
         <div class="title">Hawkes as an authenticity probe</div>
@@ -1639,6 +1653,65 @@
     Our method operates on surface events only — but we can turn that into a feature. By comparing textual markers to intensity dynamics, we can distinguish reasoning that leads language (authentic) from language that triggers reasoning-shaped tokens (cosmetic).
     Practical value: this is a diagnostic tool for the broader LLM community. It's a side product of EventBudget, not the main contribution, but it's cheap to add since we already have both the event stream and the textual markers.
     This connects to Anthropic's interpretability research direction — without actually needing weight access.
+  </aside>
+</section>
+
+<!-- ═══════════════════════════════════════════ SLIDE: THREATS TO VALIDITY -->
+<section>
+  <h2>Threats to Validity · Honest Limitations</h2>
+  <div class="grid2" style="font-size:.82em">
+    <div>
+      <div class="method" style="margin-bottom:.5em">
+        <div class="title">T1 · Event ontology is not ground truth</div>
+        <div class="sub">
+          "Wait, actually…" is not always a <span class="etag">backtrack</span>; "The answer is" is not always a <span class="etag">commit</span>. Writing style differs across models (Qwen ≠ GPT ≠ Claude) — domain shift on <em>event semantics</em>, not just distributions.<br>
+          <strong>Mitigation:</strong> H0 (≥90% F1 on LLM-judge gold) as prerequisite; per-model detector re-tuning; inter-annotator κ reported.
+        </div>
+      </div>
+      <div class="method" style="margin-bottom:.5em">
+        <div class="title">T2 · Classifier circularity</div>
+        <div class="sub">
+          If the event detector uses hidden states from the same LLM we are analyzing, the representation that explains the model is the model. Risk: the Hawkes layer fits noise dressed as structure.<br>
+          <strong>Mitigation:</strong> detector trained on a <em>different</em> model family than the one being controlled; cross-model generalization as falsification test.
+        </div>
+      </div>
+      <div class="method">
+        <div class="title">T3 · Baseline framing</div>
+        <div class="sub">
+          Modern decoders do maintain rich sequential hidden state — our claim is narrower: that the <em>stop/retrieve gate</em> is scalar, not the whole decoder.<br>
+          We beat Poisson; we have yet to beat Neural Hawkes / Transformer-TPP / RNN-TPP.
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="method" style="margin-bottom:.5em">
+        <div class="title">T4 · Conformal exchangeability</div>
+        <div class="sub">
+          Adaptive stopping is a policy-dependent decision; calibration and deployment distributions may diverge. A naive split-conformal bound does <em>not</em> automatically hold here.<br>
+          <strong>Mitigation:</strong> policy-frozen calibration; weighted conformal; empirical coverage reported alongside theoretical bound.
+        </div>
+      </div>
+      <div class="method" style="margin-bottom:.5em">
+        <div class="title">T5 · Cost constants are empirical</div>
+        <div class="sub">
+          Token costs $c_k$ are recalibrated per (model, domain) from held-out traces, not hand-picked. We report mean ± std; variance is non-trivial.
+        </div>
+      </div>
+      <div class="method">
+        <div class="title">T6 · Stationarity assumption</div>
+        <div class="sub">
+          Theorem 1 assumes $\|\Phi\|_\infty &lt; 1$ strictly; real traces have warm-up and end-phase non-stationarity. Bounds under relaxation discussed on the stationarity slide — with a black-box validator for the go/no-go decision.
+        </div>
+      </div>
+    </div>
+  </div>
+  <aside class="notes">
+    This slide is deliberately placed before the pre-registered hypotheses. Every hypothesis is vulnerable to at least one of these threats — and we name them explicitly.
+    T1 and T2 are the existential threats: if the event ontology isn't meaningful, the Hawkes layer is noise dressed as structure. H0 (detector F1) is the prerequisite test.
+    T3: we are not claiming that prior work is "scalar-only" in the sense that decoders have no state — we are claiming that the stop/retrieve gate is scalar. The comparison is narrower than a naive reading suggests.
+    T4: conformal guarantees are not free. They require exchangeability that adaptive stopping can break. We will both calibrate carefully and report empirical coverage.
+    T5: the cost numbers in the event tables are empirical, not priors chosen to make the policy look good.
+    T6: strict stationarity will fail; approximate bounds and a black-box validator are the alternative.
   </aside>
 </section>
 
@@ -1687,7 +1760,7 @@
       </div>
       <div class="method">
         <div class="title">H9 — Excitation matrix interpretability</div>
-        <div class="sub">Learned $[\phi_{kk'}]$ matrix matches hand-coded causal structure: backtrack→verify positive, backtrack→commit negative. Note: these patterns are validation targets only — the matrix is learned purely from event co-occurrence, not from causal supervision.</div>
+        <div class="sub">Learned $[\phi_{kk'}]$ matrix matches hand-coded <em>excitation</em> structure: backtrack→verify positive, backtrack→commit negative. Note: these patterns are validation targets only — the matrix is learned from event co-occurrence; we make no causal identification claim.</div>
       </div>
     </div>
   </div>
@@ -1696,7 +1769,7 @@
     H0 is a prerequisite: if the event detector doesn't work, nothing else matters.
     H1 tests whether the Hawkes model is actually better than simpler baselines.
     H3 is our main practical claim: 25% token reduction at equal accuracy.
-    H9 is a sanity check on interpretability — the learned excitation matrix should match our intuitions about causal structure.
+    H9 is a sanity check on interpretability — the learned excitation matrix should match our intuitions about statistical co-occurrence patterns. We deliberately avoid "causal" framing since we do not run interventions.
   </aside>
 </section>
 
@@ -1911,36 +1984,29 @@
 <!-- ═══════════════════════════════════════════ SLIDE: STAGE 3 LABELS -->
 <section>
   <h2>Stage 3 · Stage A / B Labeling Algorithm <span class="wip">WIP</span></h2>
-  <div class="grid2">
-    <div>
-      <div class="fbox">
-        <strong><code>find_first_correct_commit</code> algorithm:</strong>
-        <pre style="font-size:.72em;margin:.5em 0 0;background:transparent;padding:0"><code class="python">def find_first_correct_commit(trace, oracle):
-    events = trace.events
-    for i, event in enumerate(events):
+  <div class="fbox" style="margin-bottom:.7em">
+    <strong><code>find_first_correct_commit</code> algorithm:</strong>
+    <pre style="font-size:.75em;margin:.4em 0 0;background:transparent;padding:0;white-space:pre-wrap;overflow:visible"><code class="python">def find_first_correct_commit(trace, oracle):
+    for i, event in enumerate(trace.events):
         if event.type == "commit":
-            answer = extract_answer(
-                trace.text[:event.char_pos]
-            )
+            answer = extract_answer(trace.text[:event.char_pos])
             if oracle.is_correct(answer, trace.gold):
-                return i  # first correct commit index
-    return None  # no correct commit found</code></pre>
+                return i               # first correct commit index
+    return None                        # no correct commit found</code></pre>
+  </div>
+  <div class="grid2">
+    <div class="method">
+      <div class="title">Stage A label</div>
+      <div class="sub">
+        For each event $e_i$ in trace, Stage A label = 1 if <code>find_first_correct_commit</code> returns $j > i$ with $C(t_j) \leq B_{\max}$.
+        <br>i.e., "at this point, the problem is still solvable within budget."
       </div>
     </div>
-    <div>
-      <div class="method">
-        <div class="title">Stage A label</div>
-        <div class="sub">
-          For each event $e_i$ in trace, Stage A label = 1 if <code>find_first_correct_commit</code> returns an index $j > i$ with $C(t_j) \leq B_{\max}$.
-          <br>i.e., "at this point in the trace, the problem is still solvable within budget."
-        </div>
-      </div>
-      <div class="method" style="margin-top:.6em">
-        <div class="title">Stage B label</div>
-        <div class="sub">
-          For each <span class="etag">retrieval-call</span> event, Stage B label = 1 if the next <span class="etag">answer-commit</span> after this retrieval is correct, AND removing this retrieval would have made the commit incorrect.
-          <br>i.e., "this retrieval was load-bearing."
-        </div>
+    <div class="method">
+      <div class="title">Stage B label</div>
+      <div class="sub">
+        For each <span class="etag">retrieval-call</span>, Stage B label = 1 if the next <span class="etag">commit</span> is correct AND removing this retrieval would have made it incorrect.
+        <br>i.e., "this retrieval was load-bearing."
       </div>
     </div>
   </div>
@@ -2037,21 +2103,13 @@
     <div>
       <div class="fbox">
         <strong>The key claim:</strong><br><br>
-        Modeling the causal event structure of reasoning chains (via Hawkes process) enables better budget control decisions than scalar signals — with a formal convergence guarantee and conformal coverage guarantee.
-      </div>
-      <div class="fbox2" style="margin-top:.8em">
-        <strong>Next steps:</strong>
-        <ul>
-          <li>Build trace collection infrastructure (Week 1)</li>
-          <li>Prototype Level 1 event detector (Week 2)</li>
-          <li>Submit pre-registration to OSF</li>
-        </ul>
+        Modeling the typed event structure of reasoning chains with temporal excitation (via Hawkes process, not identified causation) enables better budget control decisions than scalar gates — with a formal convergence argument and a planned conformal coverage guarantee, caveated for exchangeability under adaptive policies.
       </div>
     </div>
   </div>
   <aside class="notes">
     Summary slide. Three parts, three takeaways.
-    The key claim is that causal event structure enables better decisions — this is what we need to prove experimentally.
+    The key claim is that typed event structure with temporal dependence enables better decisions — this is what we need to prove experimentally. We avoid the word "causal" in the strict sense.
     The pre-registration commits us to specific hypotheses and falsification criteria before we see results.
   </aside>
 </section>
