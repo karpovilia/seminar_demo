@@ -198,22 +198,35 @@
       vertical-align: middle;
     }
 
-    /* ── slide number styling (top-right, out of controls' way) ── */
-    .reveal .slide-number {
-      position: fixed;
-      top: 18px;
-      right: 22px;
-      bottom: auto;
-      left: auto;
-      background: transparent;
-      color: var(--accent-soft);
-      font-weight: 600;
-      font-size: 20px;
-      letter-spacing: .05em;
-      padding: 0;
+    /* ── widen the gap between < and > so page number fits between ─ */
+    .reveal .controls .navigate-left { right: 10em !important; }
+
+    /* ── slide number sits centered between the arrows ──────────── */
+    .reveal .slide-number,
+    .reveal-viewport .slide-number {
+      position: absolute !important;
+      bottom: 22px !important;        /* aligned with arrow y-range */
+      right:  49px !important;        /* = left edge of right-arrow */
+      top: auto !important;
+      left: auto !important;
+      width: 69px !important;         /* = gap between the two arrows */
+      height: 36px !important;        /* match arrow height */
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      white-space: nowrap !important;
+      background: transparent !important;
+      color: var(--accent-soft) !important;
+      font-family: 'Manrope','Inter',sans-serif !important;
+      font-weight: 400 !important;
+      font-size: 22px !important;
+      line-height: 1 !important;
+      letter-spacing: .04em !important;
+      padding: 0 !important;
+      z-index: 30 !important;
     }
-    .reveal .slide-number-delimiter { opacity: .55; margin: 0 .2em; }
-    .reveal .slide-number a { color: inherit; }
+    .reveal .slide-number-delimiter { opacity: .6; margin: 0 .2em; }
+    .reveal .slide-number a { color: inherit; text-decoration: none; }
 
     /* ── progress bar ────────────────────────────────────────────── */
     .reveal .progress { color: var(--accent); height: 4px; }
@@ -433,7 +446,7 @@
       <ul style="font-size:.78em;padding-left:1em">
         <li>Model plans its compute allocation</li>
         <li>Requires fine-tuning</li>
-        <li>Examples: SelfBudgeter, BudgetThinker, DEER, <a href="https://arxiv.org/abs/2406.19215" target="_blank" rel="noopener">SeaKR</a></li>
+        <li>Examples: <a href="https://arxiv.org/abs/2505.11274" target="_blank" rel="noopener">SelfBudgeter</a>, <a href="https://arxiv.org/abs/2508.17196" target="_blank" rel="noopener">BudgetThinker</a>, <a href="https://arxiv.org/abs/2504.15895" target="_blank" rel="noopener">DEER</a>, <a href="https://arxiv.org/abs/2406.19215" target="_blank" rel="noopener">SeaKR</a></li>
       </ul>
       <div style="margin-top:.4em;font-size:.75em;opacity:.75">Signal: budget token / self-confidence</div>
     </div>
